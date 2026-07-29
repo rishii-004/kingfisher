@@ -161,24 +161,9 @@ See [docs/ROADMAP.md](docs/ROADMAP.md) for the full detailed plan.
 
 ---
 
-## API Overview
+## API Contract
 
-All endpoints are prefixed with `/api/v1/`.
-
-- `POST /auth/register` — create account
-- `POST /auth/login` — sign in
-- `POST /auth/refresh` — refresh access token
-- `GET /auth/me` — current user
-- `GET /problems` — list/search problems
-- `GET /lists` — list available lists
-- `POST /lists` — create custom list
-- `PUT /user/problems/{id}/status` — update problem status
-- `POST /user/problems/{id}/solve-log` — log a solve
-- `GET /reviews/due` — due reviews
-- `GET /analytics/heatmap` — contribution data
-- `GET /analytics/radar` — skill radar data
-
-Responses follow the envelope: `{ "data": ..., "error": ... }`
+Full API specification is at [docs/API.md](docs/API.md) — the single source of truth for all endpoints, request/response schemas, auth requirements, and error codes. Both backend and frontend development reference this document.
 
 ---
 

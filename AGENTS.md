@@ -129,9 +129,16 @@ docker-compose up
 
 ---
 
+## Key Documents
+
+- **`docs/ROADMAP.md`** — Development plan (9 phases)
+- **`docs/API.md`** — Complete API contract (all endpoints, schemas, errors)
+- **`AGENTS.md`** — This file
+
 ## Current Status
 
 - [x] Repository initialized
+- [x] API contract written
 - [ ] Backend scaffold
 - [ ] Frontend scaffold
 - [ ] Database models
