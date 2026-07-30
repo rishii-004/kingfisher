@@ -54,6 +54,32 @@ export interface SolveLog {
   solved_at: string;
 }
 
+export type MistakeTag =
+  | "edge_case_missed"
+  | "off_by_one"
+  | "tle"
+  | "wrong_approach"
+  | "syntax_error"
+  | "didnt_know_pattern"
+  | "mle"
+  | "other";
+
+export const MISTAKE_TAG_LABELS: Record<MistakeTag, string> = {
+  edge_case_missed: "Edge case missed",
+  off_by_one: "Off-by-one",
+  tle: "Time limit exceeded",
+  wrong_approach: "Wrong approach",
+  syntax_error: "Syntax error",
+  didnt_know_pattern: "Didn't know pattern",
+  mle: "Memory limit exceeded",
+  other: "Other",
+};
+
+export interface StatusUpdateResponse {
+  user_problem: UserProblem;
+  solve_log_required: boolean;
+}
+
 export interface Platform {
   value: "leetcode" | "gfg" | "neetcode" | "other";
   label: string;

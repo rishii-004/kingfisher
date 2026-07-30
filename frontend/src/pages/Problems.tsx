@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useProblems, usePlatforms } from "../hooks/use-problems";
+import { useSetProblemStatus } from "../hooks/use-user-problems";
+import SolveLogPopup from "../features/solve-log/SolveLogPopup";
 import type { Problem } from "../types";
 
 const difficulties = ["easy", "medium", "hard"] as const;
@@ -10,7 +12,37 @@ const difficultyColor: Record<string, string> = {
   hard: "text-red-400 bg-red-500/10",
 };
 
-function ProblemRow({ problem }: { problem: Problem }) {
+const statusColors: Record<string, string> = {
+  todo: "text-surface-500 bg-surface-800",
+  solving: "text-blue-400 bg-blue-500/10",
+  solved: "text-green-400 bg-green-500/10",
+  skipped: "text-surface-500 bg-surface-800 line-through",
+};
+
+const statusLabels: Record<string, string> = {
+  todo: "Todo",
+  solving: "Solving",
+  solved: "Solved",
+  skipped: "Skipped",
+};
+
+type ProblemStatus = "todo" | "solving" | "solved" | "skipped";
+
+const nextStatuses: Record<string, ProblemStatus[]> = {
+  todo: ["solving", "skipped"],
+  solving: ["solved", "skipped", "todo"],
+  solved: [],
+  skipped: ["todo"],
+};
+
+interface ProblemRowProps {
+  problem: Problem;
+  status: ProblemStatus;
+  onStatusChange: (problemId: string, status: ProblemStatus) => void;
+  disabled: boolean;
+}
+
+function ProblemRow({ problem, status, onStatusChange, disabled }: ProblemRowProps) {
   return (
     <div className="flex items-center gap-4 rounded-lg border border-surface-800 px-4 py-3 hover:bg-surface-800/50 transition-colors">
       <div className="flex-1 min-w-0">
@@ -26,10 +58,27 @@ function ProblemRow({ problem }: { problem: Problem }) {
           ))}
         </div>
       </div>
+
       <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${difficultyColor[problem.difficulty]}`}>
         {problem.difficulty}
       </span>
-      <span className="hidden sm:block text-xs text-surface-500 capitalize w-20 text-right">{problem.platform}</span>
+
+      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[status]}`}>
+        {statusLabels[status]}
+      </span>
+
+      <div className="flex gap-1">
+        {nextStatuses[status].map((ns) => (
+          <button
+            key={ns}
+            onClick={() => onStatusChange(problem.id, ns)}
+            disabled={disabled}
+            className="rounded-md bg-surface-800 px-2 py-1 text-xs text-surface-400 hover:bg-surface-700 hover:text-white transition-colors disabled:opacity-40 capitalize"
+          >
+            {ns === "solved" ? "✓" : ns === "skipped" ? "—" : "→"}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -40,8 +89,27 @@ export default function Problems() {
   const [difficulty, setDifficulty] = useState("");
   const [page, setPage] = useState(1);
 
+  const [statusMap, setStatusMap] = useState<Record<string, ProblemStatus>>({});
+  const [solveLogProblem, setSolveLogProblem] = useState<{ id: string; title: string } | null>(null);
+
   const { data, isLoading, error } = useProblems({ q: query || undefined, platform: platform || undefined, difficulty: difficulty || undefined, page, per_page: 20 });
   const { data: platforms } = usePlatforms();
+  const setStatus = useSetProblemStatus();
+
+  const handleStatusChange = (problemId: string, newStatus: ProblemStatus) => {
+    setStatus.mutate(
+      { problemId, status: newStatus },
+      {
+        onSuccess: (res) => {
+          setStatusMap((prev) => ({ ...prev, [problemId]: newStatus }));
+          if (res.solve_log_required) {
+            const problem = (data?.items ?? []).find((p) => p.id === problemId);
+            if (problem) setSolveLogProblem({ id: problemId, title: problem.title });
+          }
+        },
+      },
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -97,7 +165,13 @@ export default function Problems() {
         <>
           <div className="space-y-2">
             {data.items.map((problem) => (
-              <ProblemRow key={problem.id} problem={problem} />
+              <ProblemRow
+                key={problem.id}
+                problem={problem}
+                status={statusMap[problem.id] ?? "todo"}
+                onStatusChange={handleStatusChange}
+                disabled={setStatus.isPending}
+              />
             ))}
           </div>
 
@@ -126,6 +200,14 @@ export default function Problems() {
             </div>
           </div>
         </>
+      )}
+
+      {solveLogProblem && (
+        <SolveLogPopup
+          problemId={solveLogProblem.id}
+          problemTitle={solveLogProblem.title}
+          onClose={() => setSolveLogProblem(null)}
+        />
       )}
     </div>
   );
