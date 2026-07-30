@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# dev-only (not committed)
+mock-server.mjs
+dev.sh
