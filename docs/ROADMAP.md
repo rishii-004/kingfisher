@@ -237,19 +237,19 @@ Goal: Review queue with spaced repetition scheduling.
 Goal: Full-text search, contribution heatmap, and radar skill chart.
 
 ### Backend — Search
-- [ ] Create `app/services/search.py`:
-  - `search_problems(query, filters)` — search by title, tags, notes (via ILIKE or full-text search)
+- [x] Create `app/services/search.py`:
+  - `search_problems(query, filters)` — search by title, tags, notes
   - `search_notes(query, user_id)` — search user's solve log notes
-- [ ] Extend `GET /api/v1/problems` with search query parameter
-- [ ] Create `GET /api/v1/user/search?q=<query>` — unified search across problems + notes
+- [x] Extend `GET /api/v1/problems` with search query parameter
+- [x] Create `GET /api/v1/user/search?q=<query>` — unified search across problems + notes
 
 ### Backend — Analytics
-- [ ] Create `app/services/analytics.py`:
+- [x] Create `app/services/analytics.py`:
   - `get_heatmap_data(user_id, year)` — daily solve/review counts for contribution heatmap
-  - `get_radar_data(user_id)` — topic-wise solve counts mapped to pattern categories (Two Pointers, Trees, DP, etc.)
+  - `get_radar_data(user_id)` — topic-wise solve counts mapped to pattern categories
   - `get_difficulty_breakdown(user_id)` — easy/medium/hard counts
   - `get_time_spent_trends(user_id)` — aggregate time spent data
-- [ ] Create `app/routers/analytics.py`:
+- [x] Create `app/routers/analytics.py`:
   - `GET /api/v1/analytics/heatmap?year=2026`
   - `GET /api/v1/analytics/radar`
   - `GET /api/v1/analytics/difficulty`
@@ -279,10 +279,10 @@ Goal: Full-text search, contribution heatmap, and radar skill chart.
 Goal: Export/import, error states, loading states, responsive design.
 
 ### Backend — Export/Import
-- [ ] Create `app/services/portability.py`:
+- [x] Create `app/services/portability.py`:
   - `export_user_data(user_id)` — JSON dump of all user problems, solve logs, reviews, custom lists
   - `import_user_data(user_id, data)` — restore from JSON (validate, upsert)
-- [ ] Create `app/routers/portability.py`:
+- [x] Create `app/routers/portability.py`:
   - `GET /api/v1/user/export` — download JSON
   - `POST /api/v1/user/import` — upload and restore JSON
   - Protect both endpoints with auth
@@ -313,15 +313,15 @@ Goal: Admin panel, moderation tools, prepared for scale.
 - [ ] Admin-only navigation links (hidden from non-admins)
 
 ### Backend — Admin Enhancements
-- [ ] Add `GET /api/v1/admin/users` — list all users (admin only)
-- [ ] Add `PATCH /api/v1/admin/users/{id}/toggle-admin` — toggle is_admin
-- [ ] Add `DELETE /api/v1/admin/users/{id}` — delete user
+- [x] Add `GET /api/v1/admin/users` — list all users (admin only)
+- [x] Add `PATCH /api/v1/admin/users/{id}/toggle-admin` — toggle is_admin
+- [x] Add `DELETE /api/v1/admin/users/{id}` — delete user
 
-### Scaling Prep
-- [ ] Add pagination to all list endpoints (already following `?page=&per_page=` convention)
-- [ ] Add rate limiting middleware
-- [ ] Add request logging middleware
-- [ ] Database connection pooling tuning in `database.py`
+### Scaling Prep (deferred — not needed at current traffic levels)
+- [x] Add pagination to all list endpoints (already following `?page=&per_page=` convention)
+- [~] Add rate limiting middleware
+- [~] Add request logging middleware
+- [~] Database connection pooling tuning in `database.py`
 
 ---
 
@@ -329,7 +329,7 @@ Goal: Admin panel, moderation tools, prepared for scale.
 
 Goal: Automated tests, CI pipeline, production readiness.
 
-### Backend Testing
+### Backend Testing (pending)
 - [ ] Test all auth endpoints (register, login, refresh, me)
 - [ ] Test admin CRUD for problems and lists
 - [ ] Test user problem status transitions
