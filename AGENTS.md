@@ -52,39 +52,51 @@ Read this first before making any changes.
 ## Directory Structure
 
 ```
-kingfisher/
-├── AGENTS.md              # This file — agent memory
-├── README.md              # Project readme
-├── docs/
-│   └── ROADMAP.md         # Development roadmap
-├── backend/
-│   ├── app/
-│   │   ├── main.py        # FastAPI entry point
-│   │   ├── config.py       # Settings (pydantic-settings)
-│   │   ├── database.py     # DB engine + session
-│   │   ├── models/         # SQLAlchemy models
-│   │   ├── schemas/        # Pydantic schemas
-│   │   ├── routers/        # API route handlers
-│   │   ├── services/       # Business logic
-│   │   └── utils/          # Helpers (auth, etc.)
-│   ├── alembic/            # Migrations
-│   ├── tests/
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── components/     # Reusable UI components
-│   │   ├── features/       # Feature modules
-│   │   ├── hooks/          # Custom hooks
-│   │   ├── lib/            # Utilities + API client
-│   │   ├── pages/          # Route pages
-│   │   ├── stores/         # State (zustand or context)
-│   │   └── types/          # TypeScript types
-│   ├── public/
-│   ├── package.json
-│   ├── vite.config.ts
-│   └── Dockerfile
-└── docker-compose.yml
+kingfisher-parent/
+├── kingfisher/              # Main repo (main branch) — shared docs, AGENTS.md
+│   ├── AGENTS.md            # This file — agent memory
+│   ├── README.md            # Project readme
+│   ├── docs/
+│   │   ├── ROADMAP.md       # Development roadmap
+│   │   └── API.md           # API contract
+│   ├── backend/             # Backend source (committed from backend branch worktree)
+│   └── frontend/            # Frontend source (committed from frontend branch worktree)
+│
+├── kingfisher-backend/      # Worktree (backend branch) — backend-only development
+│   ├── AGENTS.md → symlink? No, each worktree has its own copy
+│   ├── backend/
+│   │   ├── app/
+│   │   │   ├── main.py      # FastAPI entry point
+│   │   │   ├── config.py    # Settings (pydantic-settings)
+│   │   │   ├── database.py  # DB engine + session
+│   │   │   ├── models/      # SQLAlchemy models
+│   │   │   ├── schemas/     # Pydantic schemas
+│   │   │   ├── routers/     # API route handlers
+│   │   │   ├── services/    # Business logic
+│   │   │   └── utils/       # Helpers (auth, etc.)
+│   │   ├── alembic/         # Migrations
+│   │   ├── tests/
+│   │   ├── requirements.txt
+│   │   └── Dockerfile
+│   ├── docs/
+│   └── README.md
+│
+└── kingfisher-frontend/     # Worktree (frontend branch) — frontend-only development
+    ├── frontend/
+    │   ├── src/
+    │   │   ├── components/  # Reusable UI components
+    │   │   ├── features/    # Feature modules
+    │   │   ├── hooks/       # Custom hooks
+    │   │   ├── lib/         # Utilities + API client
+    │   │   ├── pages/       # Route pages
+    │   │   ├── stores/      # State (zustand or context)
+    │   │   └── types/       # TypeScript types
+    │   ├── public/
+    │   ├── package.json
+    │   ├── vite.config.ts
+    │   └── Dockerfile
+    ├── docs/
+    └── README.md
 ```
 
 ---
@@ -108,18 +120,68 @@ kingfisher/
 
 ---
 
+## Git Workflow with Worktrees
+
+This project uses **git worktrees** to develop backend and frontend simultaneously from a single repository.
+
+### Setup (done once)
+
+```bash
+# Main repo (already cloned)
+cd kingfisher-parent/kingfisher
+
+# Create branches for each domain (done)
+git branch backend main
+git branch frontend main
+
+# Create worktrees (done)
+git worktree add ../kingfisher-backend backend
+git worktree add ../kingfisher-frontend frontend
+```
+
+### Daily workflow
+
+```bash
+# Work on backend — edit in kingfisher-backend/
+cd ../kingfisher-backend
+git add -A && git commit -m "feat: ..."
+git push origin backend
+
+# Work on frontend — edit in kingfisher-frontend/
+cd ../kingfisher-frontend
+git add -A && git commit -m "feat: ..."
+git push origin frontend
+
+# Sync shared docs back to main
+cd ../kingfisher
+git pull origin main
+git checkout backend -- docs/   # pull doc updates from backend
+git checkout frontend -- docs/  # pull doc updates from frontend
+```
+
+### Agent instructions
+
+When asked to build or modify:
+- **Backend work** → worktree at `../../kingfisher-backend/backend/`, branch `backend`
+- **Frontend work** → worktree at `../../kingfisher-frontend/frontend/`, branch `frontend`
+- **Shared docs/AGENTS.md** → main repo `../../kingfisher/`, branch `main`
+- Always read `AGENTS.md` first before making changes.
+- When running backend commands (uvicorn, pytest, alembic), do so from the backend worktree.
+- When running frontend commands (npm, vite), do so from the frontend worktree.
+- Commit changes on the correct branch (backend → `backend`, frontend → `frontend`, docs → `main`).
+
 ## How to Run (Development)
 
 ```bash
-# Backend
-cd backend
+# Backend (from kingfisher-backend)
+cd ../kingfisher-backend/backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 
-# Frontend
-cd frontend
+# Frontend (from kingfisher-frontend)
+cd ../kingfisher-frontend/frontend
 npm install
 npm run dev
 
