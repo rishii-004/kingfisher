@@ -1,0 +1,12 @@
+import DueTodayBanner from "../features/review/DueTodayBanner";
+import ReviewQueue from "../features/review/ReviewQueue";
+
+export default function Review() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-white">Review</h1>
+      <DueTodayBanner />
+      <ReviewQueue />
+    </div>
+  );
+}
