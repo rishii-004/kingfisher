@@ -14,6 +14,7 @@ import Lists from "./pages/Lists";
 import Review from "./pages/Review";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import Admin from "./pages/Admin";
 
 function Layout() {
   const { user, logout } = useAuth();
@@ -37,6 +38,7 @@ function Layout() {
           <NavLink to="/lists">Lists</NavLink>
           <NavLink to="/review">Review</NavLink>
           <NavLink to="/analytics">Analytics</NavLink>
+          {user?.is_admin && <NavLink to="/admin">Admin</NavLink>}
         </nav>
         <div className="space-y-2 pt-4 border-t border-surface-800">
           <NavLink to="/settings">Settings</NavLink>
@@ -103,6 +105,7 @@ export default function App() {
               <Route path="review" element={<Review />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="admin" element={<Admin />} />
             </Route>
           </Route>
         </Routes>
