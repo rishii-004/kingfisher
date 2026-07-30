@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.models.solve_log import SolveLog
 from app.models.user_problem import UserProblem
+from app.services.spaced_repetition import schedule_first_review
 
 
 def create_solve_log(
@@ -36,6 +37,8 @@ def create_solve_log(
         solved_at=datetime.now(timezone.utc),
     )
     db.add(log)
+    db.flush()
+    schedule_first_review(db, user_id, problem_id, str(log.id))
     db.commit()
     db.refresh(log)
     return log
