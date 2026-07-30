@@ -1,3 +1,207 @@
-from fastapi import APIRouter
+from uuid import UUID
 
-router = APIRouter()
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models.list import ProblemList
+from app.models.list_problem import ListProblem
+from app.models.problem import Problem
+from app.schemas.list import (
+    ListCreate,
+    ListDetailResponse,
+    ListResponse,
+    ListUpdate,
+    ProblemResponse,
+)
+from app.services.auth import get_current_user
+from app.models.user import User
+
+router = APIRouter(dependencies=[Depends(get_current_user)])
+
+
+def _list_to_response(lst: ProblemList, db: Session) -> ListResponse:
+    count = db.query(ListProblem).filter(ListProblem.list_id == lst.id).count()
+    return ListResponse(
+        id=str(lst.id),
+        name=lst.name,
+        description=lst.description,
+        is_global=lst.is_global,
+        is_custom=lst.is_custom,
+        owner_id=str(lst.owner_id) if lst.owner_id else None,
+        problem_count=count,
+        created_at=lst.created_at,
+        updated_at=lst.updated_at,
+    )
+
+
+@router.get("", response_model=list[ListResponse])
+def list_lists(
+    type: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    q = db.query(ProblemList).filter(
+        (ProblemList.is_global == True) | (ProblemList.owner_id == current_user.id)
+    )
+    if type == "global":
+        q = q.filter(ProblemList.is_global == True)
+    elif type == "custom":
+        q = q.filter(ProblemList.owner_id == current_user.id)
+    q = q.order_by(ProblemList.created_at.desc())
+    lists = q.all()
+    return [_list_to_response(lst, db) for lst in lists]
+
+
+@router.get("/{list_id}", response_model=ListDetailResponse)
+def get_list(list_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    lst = db.query(ProblemList).filter(ProblemList.id == list_id).first()
+    if not lst:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
+    if not lst.is_global and lst.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
+    lps = db.query(ListProblem).filter(ListProblem.list_id == lst.id).order_by(ListProblem.order).all()
+    problems = []
+    for lp in lps:
+        p = db.query(Problem).filter(Problem.id == lp.problem_id).first()
+        if p:
+            problems.append(ProblemResponse.model_validate(p))
+    base = _list_to_response(lst, db)
+    return ListDetailResponse(**base.model_dump(), problems=problems)
+
+
+@router.post("", response_model=ListResponse, status_code=status.HTTP_201_CREATED)
+def create_list(
+    body: ListCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    lst = ProblemList(
+        name=body.name,
+        description=body.description,
+        is_custom=True,
+        owner_id=current_user.id,
+    )
+    db.add(lst)
+    db.commit()
+    db.refresh(lst)
+    return _list_to_response(lst, db)
+
+
+@router.put("/{list_id}", response_model=ListResponse)
+def update_list(
+    list_id: str,
+    body: ListUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    lst = db.query(ProblemList).filter(
+        ProblemList.id == list_id, ProblemList.owner_id == current_user.id
+    ).first()
+    if not lst:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
+    for key, val in body.model_dump(exclude_unset=True).items():
+        setattr(lst, key, val)
+    db.commit()
+    db.refresh(lst)
+    return _list_to_response(lst, db)
+
+
+@router.delete("/{list_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_list(
+    list_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    lst = db.query(ProblemList).filter(
+        ProblemList.id == list_id, ProblemList.owner_id == current_user.id
+    ).first()
+    if not lst:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
+    db.delete(lst)
+    db.commit()
+
+
+@router.post("/{list_id}/fork", response_model=ListResponse, status_code=status.HTTP_201_CREATED)
+def fork_list(
+    list_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    original = db.query(ProblemList).filter(
+        ProblemList.id == list_id, ProblemList.is_global == True
+    ).first()
+    if not original:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Global list not found")
+    existing = db.query(ProblemList).filter(
+        ProblemList.owner_id == current_user.id,
+        ProblemList.name == original.name,
+        ProblemList.is_custom == True,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already forked this list")
+    forked = ProblemList(
+        name=original.name,
+        description=original.description,
+        is_custom=True,
+        owner_id=current_user.id,
+    )
+    db.add(forked)
+    db.flush()
+    original_problems = db.query(ListProblem).filter(ListProblem.list_id == original.id).all()
+    for lp in original_problems:
+        db.add(ListProblem(list_id=forked.id, problem_id=lp.problem_id, order=lp.order))
+    db.commit()
+    db.refresh(forked)
+    return _list_to_response(forked, db)
+
+
+@router.post("/{list_id}/problems", status_code=status.HTTP_201_CREATED)
+def add_problem_to_list(
+    list_id: str,
+    problem_id: str,
+    order: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    lst = db.query(ProblemList).filter(
+        ProblemList.id == list_id, ProblemList.owner_id == current_user.id
+    ).first()
+    if not lst:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
+    problem = db.query(Problem).filter(Problem.id == problem_id).first()
+    if not problem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found")
+    existing = db.query(ListProblem).filter(
+        ListProblem.list_id == list_id, ListProblem.problem_id == problem_id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Problem already in list")
+    if order is None:
+        max_order = db.query(ListProblem.order).filter(ListProblem.list_id == list_id).order_by(ListProblem.order.desc()).first()
+        order = (max_order[0] or 0) + 1 if max_order else 0
+    lp = ListProblem(list_id=list_id, problem_id=problem_id, order=order)
+    db.add(lp)
+    db.commit()
+    return {"list_id": str(list_id), "problem_id": str(problem_id), "order": order}
+
+
+@router.delete("/{list_id}/problems/{problem_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_problem_from_list(
+    list_id: str,
+    problem_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    lst = db.query(ProblemList).filter(
+        ProblemList.id == list_id, ProblemList.owner_id == current_user.id
+    ).first()
+    if not lst:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
+    lp = db.query(ListProblem).filter(
+        ListProblem.list_id == list_id, ListProblem.problem_id == problem_id
+    ).first()
+    if not lp:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Problem not in list")
+    db.delete(lp)
+    db.commit()
