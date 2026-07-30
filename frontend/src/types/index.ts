@@ -109,3 +109,30 @@ export interface ApiResponse<T> {
   data: T | null;
   error: { code: string; message: string } | null;
 }
+
+export interface HeatmapEntry {
+  date: string;
+  count: number;
+}
+
+export interface RadarEntry {
+  topic: string;
+  solved: number;
+}
+
+export interface DifficultyBreakdown {
+  easy: number;
+  medium: number;
+  hard: number;
+}
+
+export interface TimeTrendEntry {
+  bucket: string;
+  count: number;
+}
+
+export interface SearchResult {
+  type: "problem" | "note" | "list";
+  relevance: number;
+  data: Problem | ProblemList | { problem_id: string; problem_title: string; notes_snippet: string };
+}

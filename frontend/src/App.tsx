@@ -3,18 +3,21 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/query-client";
 import { useAuth } from "./hooks/use-auth";
 import ProtectedRoute from "./components/ProtectedRoute";
+import CommandPalette from "./features/search/CommandPalette";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Problems from "./pages/Problems";
 import Lists from "./pages/Lists";
 import Review from "./pages/Review";
+import Analytics from "./pages/Analytics";
 
 function Layout() {
   const { user, logout } = useAuth();
 
   return (
     <div className="flex min-h-screen bg-surface-950">
+      <CommandPalette />
       <aside className="flex w-64 flex-col border-r border-surface-800 p-6">
         <div className="mb-8">
           <h1 className="text-xl font-bold text-white">kingfisher</h1>
@@ -27,6 +30,7 @@ function Layout() {
           <Link to="/problems" className="block rounded-lg px-3 py-2 text-surface-300 hover:bg-surface-800 hover:text-white transition-colors">Problems</Link>
           <Link to="/lists" className="block rounded-lg px-3 py-2 text-surface-300 hover:bg-surface-800 hover:text-white transition-colors">Lists</Link>
           <Link to="/review" className="block rounded-lg px-3 py-2 text-surface-300 hover:bg-surface-800 hover:text-white transition-colors">Review</Link>
+          <Link to="/analytics" className="block rounded-lg px-3 py-2 text-surface-300 hover:bg-surface-800 hover:text-white transition-colors">Analytics</Link>
         </nav>
         <button
           onClick={logout}
@@ -55,6 +59,7 @@ export default function App() {
               <Route path="problems" element={<Problems />} />
               <Route path="lists" element={<Lists />} />
               <Route path="review" element={<Review />} />
+              <Route path="analytics" element={<Analytics />} />
             </Route>
           </Route>
         </Routes>
