@@ -199,16 +199,16 @@ docker-compose up
 
 ## Current Status
 
-- [x] Repository initialized
-- [x] API contract written
-- [ ] Backend scaffold
-- [ ] Frontend scaffold
-- [ ] Database models
-- [ ] Auth system
-- [ ] API endpoints
-- [ ] UI components
-- [ ] Integration
-- [ ] Testing
-- [ ] Deployment
+### Backend (branch `backend`) — Complete
+- [x] Phases 1-4: Auth, Models, CRUD, Solve Logs, Spaced Repetition
+- [x] Phase 5: Search & Analytics endpoints
+- [x] Phase 6: Export/Import portability
+- [x] Phase 7: Admin CRUD
+- [~] Phase 7: Scaling prep (deferred)
+- [ ] Phase 8: Tests (pending)
+- [ ] Phase 9: Deployment
+
+### Frontend (branch `frontend`) — Not started
+- [ ] All UI components, pages, hooks
 
 See `docs/ROADMAP.md` for detailed development plan.
