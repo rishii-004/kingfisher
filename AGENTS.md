@@ -208,7 +208,7 @@ docker-compose up
 - [ ] Phase 8: Tests (pending)
 - [ ] Phase 9: Deployment
 
-### Frontend (branch `frontend`) — Not started
-- [ ] All UI components, pages, hooks
+### Frontend (branch `frontend`) — Complete
+- [x] Phases 1-7: Auth, Problems & Lists, Post-Solve Popup, Spaced Repetition & Dashboard, Search & Analytics, Portability & Polish, Admin Dashboard
 
 See `docs/ROADMAP.md` for detailed development plan.

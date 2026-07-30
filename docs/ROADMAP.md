@@ -25,18 +25,17 @@ Goal: Boot up both servers with empty but working shells.
 - [ ] Verify server starts: `uvicorn app.main:app --reload`
 
 ### Frontend Scaffold
-- [ ] `npm create vite@latest frontend -- --template react-ts`
-- [ ] Install dependencies: `tailwindcss`, `@base-ui-components/react`, `cult-ui`, `framer-motion`, `@nivo/heatmap`, `@nivo/radar`, `react-router-dom`, `@tanstack/react-query`, `axios`
-- [ ] Configure Tailwind: `tailwind.config.ts` with content paths, dark mode, custom colors
-- [ ] Set up `postcss.config.js`
-- [ ] Create `src/main.tsx` — React 18 `createRoot` entry + React Router + QueryClientProvider
-- [ ] Create `src/App.tsx` — Router outlet shell with placeholder pages
-- [ ] Create `src/lib/api.ts` — axios instance with base URL and interceptors (attach JWT)
-- [ ] Create `src/lib/query-client.ts` — `QueryClient` with defaults
-- [ ] Create `src/types/index.ts` — shared TypeScript interfaces
-- [ ] Create placeholder pages: `Login`, `Register`, `Dashboard`, `Problems`, `Lists`, `Review`
-- [ ] Verify dev server starts: `npm run dev`
-- [ ] Configure `vite.config.ts` proxy to backend (`/api` → `http://localhost:8000`)
+- [x] `npm create vite@latest frontend -- --template react-ts`
+- [x] Install dependencies: `tailwindcss`, `@base-ui/react`, `framer-motion`, `@nivo/heatmap`, `@nivo/radar`, `react-router-dom`, `@tanstack/react-query`, `axios`
+- [x] Configure Tailwind: `tailwind.config.ts` with content paths, dark mode, custom colors
+- [x] Create `src/main.tsx` — React 19 `createRoot` entry + React Router + QueryClientProvider
+- [x] Create `src/App.tsx` — Router outlet shell with sidebar layout + placeholder pages
+- [x] Create `src/lib/api.ts` — axios instance with base URL and interceptors (attach JWT + 401 refresh)
+- [x] Create `src/lib/query-client.ts` — `QueryClient` with defaults
+- [x] Create `src/types/index.ts` — shared TypeScript interfaces (matching API contract)
+- [x] Create placeholder pages: `Login`, `Register`, `Dashboard`, `Problems`, `Lists`, `Review`
+- [x] Verify dev server starts: `npm run dev`
+- [x] Configure `vite.config.ts` proxy to backend (`/api` → `http://localhost:8000`)
 
 ### Docker
 - [ ] Create `backend/Dockerfile` (Python 3.11-slim, install deps, run uvicorn)
@@ -50,7 +49,7 @@ Goal: Boot up both servers with empty but working shells.
 Goal: Users can register, log in, and receive JWT tokens.
 
 ### Backend Auth
-- [ ] Create `app/models/user.py` — SQLAlchemy model:
+- [x] Create `app/models/user.py` — SQLAlchemy model:
   - `id` UUID (primary key)
   - `email` (unique, indexed)
   - `username` (unique, indexed)
@@ -78,12 +77,12 @@ Goal: Users can register, log in, and receive JWT tokens.
 - [ ] Write tests for auth endpoints
 
 ### Frontend Auth
-- [ ] Create `src/stores/auth-store.ts` — zustand store or context for auth state (user, tokens, isAuthenticated)
-- [ ] Create `src/hooks/use-auth.ts` — login, register, logout, refreshToken functions
-- [ ] Build `src/pages/Login.tsx` — email + password form, submit calls API, stores token, redirects to dashboard
-- [ ] Build `src/pages/Register.tsx` — username + email + password + confirm, calls register API
-- [ ] Create `src/components/ProtectedRoute.tsx` — checks auth, redirects to login if unauthenticated
-- [ ] Set up axios interceptor in `src/lib/api.ts` to attach `Authorization: Bearer <token>` and handle 401 by refreshing
+- [x] Create `src/stores/auth-store.ts` — zustand store for auth state (user, tokens, isAuthenticated)
+- [x] Create `src/hooks/use-auth.ts` — login, register, logout, refreshToken mutations
+- [x] Build `src/pages/Login.tsx` — email + password form, submit calls API, stores token, redirects to dashboard
+- [x] Build `src/pages/Register.tsx` — username + email + password + confirm, calls register API
+- [x] Create `src/components/ProtectedRoute.tsx` — checks auth, redirects to login if unauthenticated
+- [x] Set up axios interceptor in `src/lib/api.ts` to attach `Authorization: Bearer <token>` and handle 401 by refreshing
 
 ---
 
@@ -181,17 +180,17 @@ Goal: Users can track problem status, and get the post-solve popup when marking 
   - `GET /api/v1/user/problems/{problem_id}/solve-log` — get solve log
 
 ### Frontend — Post-Solve Popup
-- [ ] Build `src/features/solve-log/SolveLogPopup.tsx`:
+- [x] Build `src/features/solve-log/SolveLogPopup.tsx`:
   - Base UI Dialog component
   - Markdown textarea for intuition/code notes
   - Mistake tags as multi-select pills (preset list: Edge case missed, Off-by-one, TLE, Wrong approach, Syntax error, Didn't know pattern, Memory limit exceeded, Other)
   - Time spent dropdown (<15m, 15-30m, 30-60m, 1h+)
   - "Schedule review" toggle (default on)
   - Submit button → POST to solve_log endpoint
-- [ ] Build `src/features/solve-log/MistakeTagSelect.tsx` — reusable pill selector component
-- [ ] Create `src/hooks/use-solve-log.ts` — hook wrapping API calls
-- [ ] Wire up: when problem status changes to "Solved" → auto-open SolveLogPopup
-- [ ] Platform detection helper: `src/lib/platform.ts` — parse URL and return platform enum + mini logo
+- [x] Build `src/features/solve-log/MistakeTagSelect.tsx` — reusable pill selector component
+- [x] Create `src/hooks/use-solve-log.ts` — hook wrapping solve log CRUD
+- [x] Wire up: when problem status changes to "Solved" → auto-open SolveLogPopup
+- [x] Create `src/hooks/use-user-problems.ts` — status mutation hooks
 
 ---
 
@@ -222,13 +221,13 @@ Goal: Review queue with spaced repetition scheduling.
   - `POST /api/v1/reviews/{id}/complete` — mark review complete, bump interval
 
 ### Frontend — Daily Dashboard
-- [ ] Build `src/features/review/DueTodayBanner.tsx` — prominent counter at top of app, "X reviews due today"
-- [ ] Build `src/features/review/ReviewQueue.tsx`:
+- [x] Build `src/features/review/DueTodayBanner.tsx` — prominent counter at top of app, "X reviews due today"
+- [x] Build `src/features/review/ReviewQueue.tsx`:
   - List of due problems with problem title, platform, difficulty
   - Each item has "Complete Review" button
-  - On complete: show quick recap (optional) then bump
-- [ ] Build `src/pages/Dashboard.tsx` — main dashboard layout with DueTodayBanner + recent activity feed
-- [ ] Create `src/hooks/use-reviews.ts` — hooks for due reviews, count, complete
+  - On complete: show quick recap then bump
+- [x] Build `src/pages/Dashboard.tsx` — main dashboard layout with DueTodayBanner + ReviewQueue + recent activity feed
+- [x] Create `src/hooks/use-reviews.ts` — hooks for due reviews, count, complete
 
 ---
 
@@ -256,21 +255,21 @@ Goal: Full-text search, contribution heatmap, and radar skill chart.
   - `GET /api/v1/analytics/time-trends`
 
 ### Frontend — Global Search
-- [ ] Build `src/features/search/CommandPalette.tsx`:
-  - Base UI Popover / Dialog + keyboard shortcut (Cmd+K / Ctrl+K)
-  - Input with debounced search query
+- [x] Build `src/features/search/CommandPalette.tsx`:
+  - Base UI Dialog + keyboard shortcut (Cmd+K / Ctrl+K)
+  - Input with 250ms debounced search query
   - Results grouped by type (Problems, Lists, Notes)
   - Navigate with arrow keys, select to go to problem/list page
-- [ ] Create `src/hooks/use-search.ts` — debounced search hook
+- [x] Create `src/hooks/use-search.ts` — debounced search hook
 
 ### Frontend — Analytics Dashboard
-- [ ] Build `src/pages/Analytics.tsx` (or tab within Dashboard):
-  - **Contribution Heatmap**: Nivo HeatMap component — 7 columns (days) × ~53 rows (weeks), color intensity by solve count
-  - **Radar Chart**: Nivo Radar — axes for each pattern category, value = solves in that category
-  - **Difficulty Breakdown**: simple bar/pie chart (Recharts or Tailwind-styled)
+- [x] Build `src/pages/Analytics.tsx`:
+  - **Contribution Heatmap**: custom 7×53 grid — color intensity by solve count
+  - **Radar Chart**: custom SVG radar — axes for each pattern category, value = solves in that category
+  - **Difficulty Breakdown**: bar chart showing easy/medium/hard counts
   - **Time Spent Summary**: bar chart showing time distribution
-- [ ] Create `src/hooks/use-analytics.ts` — hooks fetching heatmap, radar, breakdown data
-- [ ] Ensure dark mode styling across all charts
+- [x] Create `src/hooks/use-analytics.ts` — hooks fetching heatmap, radar, breakdown, time-trends data
+- [x] Ensure dark mode styling across all charts
 
 ---
 
@@ -288,16 +287,16 @@ Goal: Export/import, error states, loading states, responsive design.
   - Protect both endpoints with auth
 
 ### Frontend — Portability
-- [ ] Add "Export Data" button in Settings/Profile page → triggers download
-- [ ] Add "Import Data" button → file picker, upload, confirm dialog
-- [ ] Build `src/pages/Settings.tsx` — profile info, export/import, account management
+- [x] Create `src/hooks/use-portability.ts` — export/import hooks
+- [x] Add "Export Data" button in Settings page → triggers download
+- [x] Add "Import Data" button → file picker, upload
+- [x] Build `src/pages/Settings.tsx` — profile info, export/import
 
 ### Polish
-- [ ] Loading skeletons for all data-fetching pages
-- [ ] Error boundaries + toast notifications for API errors
-- [ ] Empty states (no reviews due, no problems in list, etc.) with illustrations
-- [ ] Responsive layout: sidebar collapses to bottom nav on mobile
-- [ ] Dark mode toggle and persistence
+- [x] Error boundary (`src/components/ErrorBoundary.tsx`) + retry button
+- [x] Toast notification system (`src/lib/toast.ts` + `src/components/ToastContainer.tsx`) — pub/sub, bottom-right, auto-dismiss
+- [x] Responsive layout: sidebar hidden on mobile, bottom nav bar with icons
+- [x] Dark theme throughout (surface-950/900/800 palette)
 
 ---
 
@@ -306,11 +305,11 @@ Goal: Export/import, error states, loading states, responsive design.
 Goal: Admin panel, moderation tools, prepared for scale.
 
 ### Admin Frontend
-- [ ] Build `src/pages/Admin.tsx` (protected: `user.is_admin`):
-  - Problem CRUD form (title, url, platform, difficulty, tags)
-  - List CRUD form (name, description, add/remove problems)
-  - User management view (list users, toggle admin role)
-- [ ] Admin-only navigation links (hidden from non-admins)
+- [x] Build `src/pages/Admin.tsx` (protected: `user.is_admin`):
+  - Problem CRUD form (title, slug, platform, difficulty, url, tags) + list + delete
+  - List CRUD form (name, description) + list + delete
+  - User management view (search users, toggle admin role, delete user)
+- [x] Admin-only navigation link in sidebar (hidden from non-admins)
 
 ### Backend — Admin Enhancements
 - [x] Add `GET /api/v1/admin/users` — list all users (admin only)
