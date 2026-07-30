@@ -54,6 +54,12 @@ export interface SolveLog {
   solved_at: string;
 }
 
+export interface Platform {
+  value: "leetcode" | "gfg" | "neetcode" | "other";
+  label: string;
+  logo_url: string | null;
+}
+
 export interface Review {
   id: string;
   user_id: string;
