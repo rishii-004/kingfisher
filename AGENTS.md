@@ -201,10 +201,10 @@ docker-compose up
 
 - [x] Repository initialized
 - [x] API contract written
-- [ ] Backend scaffold
+- [x] Backend scaffold
 - [ ] Frontend scaffold
-- [ ] Database models
-- [ ] Auth system
+- [x] Database models
+- [x] Auth system
 - [ ] API endpoints
 - [ ] UI components
 - [ ] Integration
