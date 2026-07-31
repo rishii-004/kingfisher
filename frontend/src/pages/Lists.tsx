@@ -4,7 +4,7 @@ import { useLists, useListProgress, useList, useCreateList, useDeleteList, useFo
 import { useUserProblems, useSetProblemStatus } from "../hooks/use-user-problems";
 import { useAuth } from "../hooks/use-auth";
 import { TOPICS } from "../lib/topics";
-import api from "../lib/api";
+import api, { getErrorMessage } from "../lib/api";
 import { toast } from "../lib/toast";
 import SolveLogPopup from "../features/solve-log/SolveLogPopup";
 import ListProgressCard from "../features/lists/ListProgressCard";
@@ -61,56 +61,37 @@ function AddProblemModal({ listId, onClose }: { listId: string; onClose: () => v
     if (extracted) setTitle(extracted);
   };
 
-  const handleAdd = async () => {
+  const addProblem = useAddProblemToList();
+
+  const handleAdd = () => {
     if (!url.trim() || !title.trim()) return;
     setStatus("adding");
     setMessage("");
-    try {
-      const mod = await import("../lib/api");
-      const api = mod.default;
-
-      // 1. Check if URL already exists in global problems
-      const searchRes = await api.get("/problems", { params: { q: url.trim(), per_page: 50 } });
-      const existing = searchRes.data?.data?.items?.find(
-        (p: any) => p.platform_url === url.trim(),
-      );
-
-      let problemId: string;
-      if (existing) {
-        problemId = existing.id;
-      } else {
-        // 2. Create new problem in global pool
-        const createRes = await api.post("/admin/problems", {
-          title: title.trim(),
-          slug: title.trim().toLowerCase().replace(/\s+/g, "-"),
-          platform: "leetcode",
-          platform_url: url.trim(),
-          difficulty,
-          topic_tags: topic ? [topic] : [],
-          company_tags: [],
-        });
-        problemId = createRes.data.data.id;
-      }
-
-      // 3. Add to list
-      const addRes = await api.post(`/lists/${listId}/problems`, { problem_id: problemId });
-      if (addRes.data?.data) {
-        if (addRes.data.data?.error) {
-          throw addRes.data.data.error;
-        }
-        setStatus("done");
-        setTimeout(onClose, 600);
-      } else {
-        throw new Error("Failed to add problem to list");
-      }
-    } catch (err: any) {
-      setStatus("idle");
-      if (err?.code === "DUPLICATE" || err?.message?.includes?.("already in list")) {
-        setMessage("This problem is already in the sheet.");
-      } else {
-        setMessage("Something went wrong. Try again.");
-      }
-    }
+    addProblem.mutate(
+      {
+        listId,
+        title: title.trim(),
+        platform: "leetcode",
+        platform_url: url.trim(),
+        difficulty,
+        topic_tags: topic ? [topic] : [],
+      },
+      {
+        onSuccess: () => {
+          setStatus("done");
+          setTimeout(onClose, 600);
+        },
+        onError: (err) => {
+          setStatus("idle");
+          const errMessage = getErrorMessage(err);
+          setMessage(
+            errMessage.includes("already in list")
+              ? "This problem is already in the sheet."
+              : errMessage,
+          );
+        },
+      },
+    );
   };
 
   return (

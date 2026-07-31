@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import api from "../lib/api";
+import api, { getErrorMessage } from "../lib/api";
 import { authStore } from "../stores/auth-store";
 import type { ApiResponse, User } from "../types";
 
@@ -29,9 +29,13 @@ export function useAuth() {
 
   const login = useMutation({
     mutationFn: async (input: LoginInput) => {
-      const { data } = await api.post<ApiResponse<AuthResponse>>("/auth/login", input);
-      if (data.error) throw new Error(data.error.message);
-      return data.data!;
+      try {
+        const { data } = await api.post<ApiResponse<AuthResponse>>("/auth/login", input);
+        if (data.error) throw new Error(data.error.message);
+        return data.data!;
+      } catch (err) {
+        throw new Error(getErrorMessage(err, "Invalid email or password."));
+      }
     },
     onSuccess: (res) => {
       authStore.setAuth(res.access_token, res.refresh_token, res.user);
@@ -41,9 +45,13 @@ export function useAuth() {
 
   const register = useMutation({
     mutationFn: async (input: RegisterInput) => {
-      const { data } = await api.post<ApiResponse<AuthResponse>>("/auth/register", input);
-      if (data.error) throw new Error(data.error.message);
-      return data.data!;
+      try {
+        const { data } = await api.post<ApiResponse<AuthResponse>>("/auth/register", input);
+        if (data.error) throw new Error(data.error.message);
+        return data.data!;
+      } catch (err) {
+        throw new Error(getErrorMessage(err, "Could not create account."));
+      }
     },
     onSuccess: (res) => {
       authStore.setAuth(res.access_token, res.refresh_token, res.user);

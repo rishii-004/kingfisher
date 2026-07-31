@@ -164,13 +164,29 @@ export function useResetListProgress() {
   });
 }
 
+interface AddProblemToListInput {
+  listId: string;
+  order?: number;
+  // Either problemId (add an existing problem)...
+  problemId?: string;
+  // ...or enough fields to create a new one inline.
+  title?: string;
+  slug?: string;
+  platform?: string;
+  platform_url?: string;
+  difficulty?: string;
+  topic_tags?: string[];
+  company_tags?: string[];
+}
+
 export function useAddProblemToList() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { listId: string; problemId: string; order?: number }) => {
+    mutationFn: async (input: AddProblemToListInput) => {
+      const { listId, problemId, ...newProblemFields } = input;
       const { data } = await api.post<ApiResponse<{ list_id: string; problem_id: string; order: number }>>(
-        `/lists/${input.listId}/problems`,
-        { problem_id: input.problemId, order: input.order }
+        `/lists/${listId}/problems`,
+        problemId ? { problem_id: problemId, order: input.order } : newProblemFields,
       );
       if (data.error) throw new Error(data.error.message);
       return data.data!;
