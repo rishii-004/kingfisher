@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from app.schemas.problem import ProblemResponse
 
@@ -39,8 +39,27 @@ class ListDetailResponse(ListResponse):
 
 
 class ListProblemAdd(BaseModel):
-    problem_id: str
+    problem_id: str | None = None
     order: int | None = None
+
+    # Inline problem creation, used when the problem being added doesn't
+    # exist in the global pool yet (e.g. pasting a new LeetCode URL).
+    title: str | None = None
+    slug: str | None = None
+    platform: str | None = None
+    platform_url: str | None = None
+    difficulty: str | None = None
+    topic_tags: list[str] | None = None
+    company_tags: list[str] | None = None
+
+    @model_validator(mode="after")
+    def _require_problem_id_or_new_problem_fields(self) -> "ListProblemAdd":
+        if not self.problem_id and not (self.title and self.platform and self.difficulty):
+            raise ValueError(
+                "Provide either problem_id or title, platform and difficulty "
+                "to create a new problem"
+            )
+        return self
 
 
 class ListProblemResponse(BaseModel):

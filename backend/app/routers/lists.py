@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,33 @@ from app.services.auth import get_current_user
 from app.services.user_problem import reset_list_progress
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
+
+
+def _slugify(title: str) -> str:
+    return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", title.lower())).strip("-")
+
+
+def _get_or_create_problem(db: Session, body: ListProblemAdd) -> Problem:
+    slug = body.slug or _slugify(body.title)
+    problem = db.query(Problem).filter(Problem.slug == slug).first()
+    if not problem and body.platform_url:
+        problem = db.query(Problem).filter(
+            Problem.platform_url == body.platform_url
+        ).first()
+    if problem:
+        return problem
+    problem = Problem(
+        title=body.title,
+        slug=slug,
+        platform=body.platform,
+        platform_url=body.platform_url,
+        difficulty=body.difficulty,
+        topic_tags=body.topic_tags or [],
+        company_tags=body.company_tags or [],
+    )
+    db.add(problem)
+    db.flush()
+    return problem
 
 
 def _list_to_response(lst: ProblemList, db: Session) -> ListResponse:
@@ -253,16 +282,19 @@ def add_problem_to_list(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not owner of this list"
         )
-    problem = db.query(Problem).filter(Problem.id == body.problem_id).first()
-    if not problem:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found"
-        )
+
+    if body.problem_id:
+        problem = db.query(Problem).filter(Problem.id == body.problem_id).first()
+        if not problem:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found"
+            )
+    else:
+        problem = _get_or_create_problem(db, body)
+
     existing = (
         db.query(ListProblem)
-        .filter(
-            ListProblem.list_id == list_id, ListProblem.problem_id == body.problem_id
-        )
+        .filter(ListProblem.list_id == list_id, ListProblem.problem_id == problem.id)
         .first()
     )
     if existing:
@@ -278,12 +310,12 @@ def add_problem_to_list(
             .first()
         )
         order = (max_order[0] or 0) + 1 if max_order else 0
-    lp = ListProblem(list_id=list_id, problem_id=body.problem_id, order=order)
+    lp = ListProblem(list_id=list_id, problem_id=problem.id, order=order)
     db.add(lp)
     db.commit()
     return Envelope(
         data=ListProblemResponse(
-            list_id=str(list_id), problem_id=str(body.problem_id), order=order
+            list_id=str(list_id), problem_id=str(problem.id), order=order
         )
     )
 
