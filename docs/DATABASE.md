@@ -129,15 +129,47 @@ or misfire on things like check constraints.
 cd backend && venv/bin/python -m scripts.seed     # or: make seed (from kingfisher/)
 ```
 
-Loads 80 curated problems into a global "NeetCode 150" list. Safe to
-re-run — it upserts by slug and skips problems already in the list,
-so it won't create duplicates.
+Loads 298 unique problems into two global lists: the full "NeetCode
+150" and "Striver's A2Z DSA Sheet" (only the 242 of its 456 problems
+that have a genuine LeetCode link — the rest are GFG/CodingNinjas/
+InterviewBit or unlinked, and this app only tracks LeetCode problems).
+See the docstring at the top of `scripts/seed.py` for data provenance.
+Safe to re-run — upserts problems by slug (refreshing their fields
+too) and skips list memberships that already exist, so it won't
+create duplicates.
+
+---
+
+## Backups
+
+```bash
+./scripts/backup.sh              # writes to backend/backups/kingfisher-<timestamp>.sql.gz
+./scripts/backup.sh /some/dir    # or a custom output directory
+```
+
+Runs `pg_dump` inside the running Postgres container (dev's
+`backend-db-1` or prod's `kingfisher-db-1` — auto-detected, or set
+`CONTAINER=<name>`), so there's no local `pg_dump` install to keep in
+sync with the server version. No automated schedule is set up at this
+scale — run it manually before risky changes, or add a cron entry
+(`0 3 * * * cd .../backend && ./scripts/backup.sh`) if you want daily
+backups.
+
+Restore with:
+```bash
+gunzip -c backend/backups/kingfisher-<timestamp>.sql.gz | docker exec -i backend-db-1 psql -U postgres kingfisher
+```
 
 ---
 
 ## Common tasks
 
-**Make a user admin** (there's no self-serve UI for this yet):
+**Make the first user an admin:** set `INITIAL_ADMIN_EMAIL` in
+`.env` to that user's email, register the account normally, then
+restart the backend — it's promoted automatically on startup (see
+`app/bootstrap.py`). Once you have one admin, promote/demote further
+users from the Admin page in the app itself (or via SQL, as a
+fallback):
 ```sql
 UPDATE users SET is_admin = true WHERE email = 'you@example.com';
 ```
