@@ -18,7 +18,7 @@ interface Props {
 export default function Select({ value, onChange, placeholder, options, className, bordered = true }: Props) {
   const selected = options.find((o) => o.value === value);
   return (
-    <BaseSelect.Root value={value} onValueChange={onChange}>
+    <BaseSelect.Root value={value} onValueChange={(v) => onChange(v ?? "")}>
       <BaseSelect.Trigger
         className={`group flex items-center gap-2 px-3 py-2 text-xs cursor-pointer outline-none ${
           bordered
