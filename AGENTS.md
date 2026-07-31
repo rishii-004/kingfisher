@@ -172,21 +172,51 @@ When asked to build or modify:
 
 ## How to Run (Development)
 
+### Everything at once (recommended)
+
+From `kingfisher/` (this repo), with the `kingfisher-backend` and
+`kingfisher-frontend` worktrees checked out as siblings per the
+directory layout above:
+
 ```bash
-# Backend (from kingfisher-backend)
+./start.sh      # or: make dev
+```
+
+This starts Postgres (via `kingfisher-backend/backend/docker-compose.yml`,
+using Docker), creates the backend venv and runs `pip install`/`alembic
+upgrade head` if needed, installs frontend deps if needed, and starts
+both `uvicorn --reload` (port 8000) and `vite` (port 5173). Ctrl+C stops
+the backend and frontend; Postgres keeps running in Docker (stop it
+separately with `docker compose -f ../kingfisher-backend/backend/docker-compose.yml stop`).
+
+There is no Dockerfile/production docker-compose for the backend or
+frontend themselves yet (see Current Status below) — `start.sh` is a
+local dev convenience, not a deployment mechanism.
+
+Other `make` targets: `make seed` (load the curated problem set),
+`make migrate` (Alembic upgrade), `make test-backend` (pytest),
+`make db-shell` (psql into the Postgres container), `make stop`
+(kill anything stuck on ports 8000/5173).
+
+### Manually, one piece at a time
+
+```bash
+# Postgres (from kingfisher-backend/backend)
 cd ../kingfisher-backend/backend
+docker compose up -d db
+
+# Backend
 python -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+alembic upgrade head
+python -m scripts.seed        # optional: load sample problems
 uvicorn app.main:app --reload
 
 # Frontend (from kingfisher-frontend)
 cd ../kingfisher-frontend/frontend
 npm install
 npm run dev
-
-# Full stack
-docker-compose up
 ```
 
 ---
@@ -199,16 +229,20 @@ docker-compose up
 
 ## Current Status
 
-### Backend (branch `backend`) — Complete
+### Backend (branch `backend`) — Complete, wired to the real contract
 - [x] Phases 1-4: Auth, Models, CRUD, Solve Logs, Spaced Repetition
-- [x] Phase 5: Search & Analytics endpoints
+- [x] Phase 5: Search & Analytics endpoints (11 total — 4 original + 7 added to match the frontend dashboard)
 - [x] Phase 6: Export/Import portability
-- [x] Phase 7: Admin CRUD
+- [x] Phase 7: Admin CRUD, incl. admin problem/list listing and user management
+- [x] Phase 8: Tests — 59 pytest tests covering every router, run twice back-to-back with no leaked state
 - [~] Phase 7: Scaling prep (deferred)
-- [ ] Phase 8: Tests (pending)
-- [ ] Phase 9: Deployment
+- [ ] Phase 9: Deployment — no Dockerfile for backend/frontend, no CI, not production-hardened
+  (default SECRET_KEY, no rate limiting, single-worker dev server). See docs/TODOS.md.
 
-### Frontend (branch `frontend`) — Complete
+### Frontend (branch `frontend`) — Complete, wired to the real backend
 - [x] Phases 1-7: Auth, Problems & Lists, Post-Solve Popup, Spaced Repetition & Dashboard, Search & Analytics, Portability & Polish, Admin Dashboard
+- [x] Dev mode talks to the real FastAPI backend by default (previously always used a mock interceptor); mock mode is opt-in via `VITE_USE_MOCK=true`
+- [x] `npm run build` verified to succeed from a clean checkout
 
-See `docs/ROADMAP.md` for detailed development plan.
+See `docs/ROADMAP.md` for detailed development plan and `docs/TODOS.md`
+(in the backend worktree) for the backend completion log.
