@@ -129,14 +129,18 @@ or misfire on things like check constraints.
 cd backend && venv/bin/python -m scripts.seed     # or: make seed (from kingfisher/)
 ```
 
-Loads 298 unique problems into two global lists: the full "NeetCode
-150" and "Striver's A2Z DSA Sheet" (only the 242 of its 456 problems
-that have a genuine LeetCode link — the rest are GFG/CodingNinjas/
-InterviewBit or unlinked, and this app only tracks LeetCode problems).
-See the docstring at the top of `scripts/seed.py` for data provenance.
-Safe to re-run — upserts problems by slug (refreshing their fields
-too) and skips list memberships that already exist, so it won't
-create duplicates.
+Loads the full problem catalog: 3,250 unique LeetCode problems, 2,952
+of them tagged with the companies (440 total) that
+github.com/liquidslr/leetcode-company-wise-problems associates them
+with. 298 of those problems also belong to one of two global lists:
+the full "NeetCode 150" and "Striver's A2Z DSA Sheet" (only the 242 of
+its 456 problems that have a genuine LeetCode link — the rest are
+GFG/CodingNinjas/InterviewBit or unlinked, and this app only tracks
+LeetCode problems). The actual data lives in `scripts/seed_data.py`
+(generated, not hand-edited); see the docstring at the top of
+`scripts/seed.py` for full provenance. Safe to re-run — upserts
+problems by slug (refreshing their fields too) and skips list
+memberships that already exist, so it won't create duplicates.
 
 ---
 
