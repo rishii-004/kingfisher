@@ -127,14 +127,14 @@ def update_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    lst = (
-        db.query(ProblemList)
-        .filter(ProblemList.id == list_id, ProblemList.owner_id == current_user.id)
-        .first()
-    )
+    lst = db.query(ProblemList).filter(ProblemList.id == list_id).first()
     if not lst:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="List not found"
+        )
+    if lst.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not owner of this list"
         )
     for key, val in body.model_dump(exclude_unset=True).items():
         setattr(lst, key, val)
@@ -149,14 +149,14 @@ def delete_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    lst = (
-        db.query(ProblemList)
-        .filter(ProblemList.id == list_id, ProblemList.owner_id == current_user.id)
-        .first()
-    )
+    lst = db.query(ProblemList).filter(ProblemList.id == list_id).first()
     if not lst:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="List not found"
+        )
+    if lst.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not owner of this list"
         )
     db.query(ListProblem).filter(ListProblem.list_id == list_id).delete(
         synchronize_session=False
@@ -206,8 +206,7 @@ def fork_list(
         db.query(ProblemList)
         .filter(
             ProblemList.owner_id == current_user.id,
-            ProblemList.name == original.name,
-            ProblemList.is_custom == True,
+            ProblemList.forked_from_id == original.id,
         )
         .first()
     )
@@ -220,6 +219,7 @@ def fork_list(
         description=original.description,
         is_custom=True,
         owner_id=current_user.id,
+        forked_from_id=original.id,
     )
     db.add(forked)
     db.flush()
@@ -244,14 +244,14 @@ def add_problem_to_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    lst = (
-        db.query(ProblemList)
-        .filter(ProblemList.id == list_id, ProblemList.owner_id == current_user.id)
-        .first()
-    )
+    lst = db.query(ProblemList).filter(ProblemList.id == list_id).first()
     if not lst:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="List not found"
+        )
+    if lst.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not owner of this list"
         )
     problem = db.query(Problem).filter(Problem.id == body.problem_id).first()
     if not problem:
@@ -297,14 +297,14 @@ def remove_problem_from_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    lst = (
-        db.query(ProblemList)
-        .filter(ProblemList.id == list_id, ProblemList.owner_id == current_user.id)
-        .first()
-    )
+    lst = db.query(ProblemList).filter(ProblemList.id == list_id).first()
     if not lst:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="List not found"
+        )
+    if lst.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not owner of this list"
         )
     lp = (
         db.query(ListProblem)
