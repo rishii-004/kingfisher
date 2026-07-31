@@ -20,6 +20,12 @@ export const authStore = {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
   },
 
+  // Refresh just the cached user snapshot (role, quota, etc. can change
+  // server-side while a session is still active) without touching tokens.
+  setUser: (user: User) => {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  },
+
   clearAuth: () => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_KEY);
