@@ -1,8 +1,11 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.bootstrap import bootstrap_initial_admin
 from app.config import settings
 from app.routers import (
     admin,
@@ -17,7 +20,13 @@ from app.routers import (
     user_problems,
 )
 
-app = FastAPI(title="kingfisher API", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    bootstrap_initial_admin()
+    yield
+
+
+app = FastAPI(title="kingfisher API", version="0.1.0", lifespan=lifespan)
 
 _STATUS_CODES = {
     400: "BAD_REQUEST",
