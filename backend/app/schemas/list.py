@@ -16,6 +16,24 @@ class ListUpdate(BaseModel):
     description: str | None = None
 
 
+class ListFromFilterCreate(BaseModel):
+    name: str
+    description: str | None = None
+    # Same filter params as GET /problems — the new list is populated with
+    # every problem currently matching this combination.
+    q: str | None = None
+    platform: str | None = None
+    difficulty: str | None = None
+    topic: str | None = None
+    company: str | None = None
+
+    @model_validator(mode="after")
+    def _require_at_least_one_filter(self) -> "ListFromFilterCreate":
+        if not any([self.q, self.platform, self.difficulty, self.topic, self.company]):
+            raise ValueError("At least one filter must be applied")
+        return self
+
+
 class ListResponse(BaseModel):
     id: uuid.UUID
     name: str

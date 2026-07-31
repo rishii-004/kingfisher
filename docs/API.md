@@ -57,6 +57,7 @@ interface User {
   email: string;
   username: string;
   is_admin: boolean;
+  max_lists: number;    // owned-list quota (created + forked); ignored for admins
   created_at: string;   // ISO 8601
   updated_at: string;   // ISO 8601
 }
@@ -351,6 +352,40 @@ Response 201:
   "data": { ... ProblemList },
   "error": null
 }
+
+Errors:
+  - 409: List limit reached (max_lists quota) — not raised for admins
+```
+
+#### POST /lists/from-filter
+Create a custom list and populate it with every problem currently
+matching the given filters (same params as `GET /problems`; at least
+one must be set). Meant for the "All Problems" browse page: apply a
+filter combination, then turn the whole result set into a list in one
+call instead of paging through results and adding problems one by one. [PROTECTED]
+
+```
+Request:
+{
+  "name": "Amazon Medium Array",
+  "description": "optional",
+  "q": "optional search text",
+  "platform": "leetcode",
+  "difficulty": "medium",
+  "topic": "Array",
+  "company": "Amazon"
+}
+
+Response 201:
+{
+  "data": { ... ProblemList },   // problem_count reflects everything added
+  "error": null
+}
+
+Errors:
+  - 422: No filter provided (q/platform/difficulty/topic/company all empty)
+  - 400: No problems match these filters
+  - 409: List limit reached (max_lists quota) — not raised for admins
 ```
 
 #### PUT /lists/{id}
@@ -399,6 +434,7 @@ Errors:
   - 404: List not found
   - 400: List is not a global list
   - 409: Already forked this list
+  - 409: List limit reached (max_lists quota) — not raised for admins
 ```
 
 #### POST /lists/{id}/problems
@@ -1109,6 +1145,27 @@ Response 200:
 Errors:
   - 404: User not found
   - 400: Cannot toggle your own admin status
+```
+
+#### PATCH /admin/users/{id}/max-lists
+Set a user's custom-list quota (overrides the default of 30). Has no
+effect on admins, who are always unlimited. [ADMIN]
+
+```
+Request:
+{
+  "max_lists": 50
+}
+
+Response 200:
+{
+  "data": { ... User },  // max_lists updated
+  "error": null
+}
+
+Errors:
+  - 404: User not found
+  - 422: max_lists must be >= 0
 ```
 
 #### DELETE /admin/users/{id}

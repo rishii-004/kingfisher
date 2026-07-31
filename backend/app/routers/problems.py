@@ -14,6 +14,7 @@ from app.schemas.problem import (
     ProblemResponse,
 )
 from app.services.auth import get_current_user
+from app.services.problem_filters import apply_problem_filters
 
 router = APIRouter()
 
@@ -47,19 +48,7 @@ def list_problems(
     list_id: str | None = None,
     db: Session = Depends(get_db),
 ):
-    query = db.query(Problem)
-    if q:
-        query = query.filter(
-            or_(Problem.title.ilike(f"%{q}%"), Problem.slug.ilike(f"%{q}%"))
-        )
-    if platform:
-        query = query.filter(Problem.platform == platform)
-    if difficulty:
-        query = query.filter(Problem.difficulty == difficulty)
-    if topic:
-        query = query.filter(Problem.topic_tags.any(topic))
-    if company:
-        query = query.filter(Problem.company_tags.any(company))
+    query = apply_problem_filters(db.query(Problem), q, platform, difficulty, topic, company)
     if list_id:
         sub = db.query(ListProblem.problem_id).filter(ListProblem.list_id == list_id)
         query = query.filter(Problem.id.in_(sub))

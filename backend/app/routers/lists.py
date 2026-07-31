@@ -12,6 +12,7 @@ from app.schemas.envelope import Envelope, Paginated
 from app.schemas.list import (
     ListCreate,
     ListDetailResponse,
+    ListFromFilterCreate,
     ListProblemAdd,
     ListProblemResponse,
     ListResponse,
@@ -20,6 +21,8 @@ from app.schemas.list import (
 )
 from app.schemas.problem import ProblemResponse
 from app.services.auth import get_current_user
+from app.services.list_quota import enforce_list_quota
+from app.services.problem_filters import apply_problem_filters
 from app.services.user_problem import reset_list_progress
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
@@ -137,6 +140,7 @@ def create_list(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    enforce_list_quota(db, current_user)
     lst = ProblemList(
         name=body.name,
         description=body.description,
@@ -144,6 +148,40 @@ def create_list(
         owner_id=current_user.id,
     )
     db.add(lst)
+    db.commit()
+    db.refresh(lst)
+    return Envelope(data=_list_to_response(lst, db))
+
+
+@router.post(
+    "/from-filter",
+    response_model=Envelope[ListResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+def create_list_from_filter(
+    body: ListFromFilterCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    enforce_list_quota(db, current_user)
+    matching = apply_problem_filters(
+        db.query(Problem), body.q, body.platform, body.difficulty, body.topic, body.company
+    ).all()
+    if not matching:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No problems match these filters",
+        )
+    lst = ProblemList(
+        name=body.name,
+        description=body.description,
+        is_custom=True,
+        owner_id=current_user.id,
+    )
+    db.add(lst)
+    db.flush()
+    for order, p in enumerate(matching):
+        db.add(ListProblem(list_id=lst.id, problem_id=p.id, order=order))
     db.commit()
     db.refresh(lst)
     return Envelope(data=_list_to_response(lst, db))
@@ -243,6 +281,7 @@ def fork_list(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="Already forked this list"
         )
+    enforce_list_quota(db, current_user)
     forked = ProblemList(
         name=original.name,
         description=original.description,

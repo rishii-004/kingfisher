@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:5173"
     # If set, this user is promoted to admin on startup (see app/bootstrap.py).
     INITIAL_ADMIN_EMAIL: str | None = None
+    # Default owned-list quota (created + forked) for newly registered
+    # users. Admins can override it per user afterwards (see
+    # PATCH /admin/users/{id}/max-lists); ignored for admins entirely.
+    DEFAULT_MAX_LISTS: int = 30
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

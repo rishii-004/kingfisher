@@ -168,3 +168,95 @@ def test_reset_list_with_solved_problem_and_review(client, test_user, problem, g
 
 def test_lists_require_auth(client):
     assert client.get("/api/v1/lists").status_code == 401
+
+
+def _register(client, prefix):
+    suffix = uuid.uuid4().hex[:8]
+    body = {
+        "email": f"{prefix}_{suffix}@test.com",
+        "username": f"{prefix}_{suffix}",
+        "password": "testpass123",
+    }
+    res = client.post("/api/v1/auth/register", json=body)
+    assert res.status_code == 201, res.text
+    data = res.json()["data"]
+    return {"access_token": data["access_token"], "id": str(data["user"]["id"])}
+
+
+def test_list_quota_enforced_then_lifted_by_admin(client, admin_user):
+    user = _register(client, "quota")
+    created = []
+    for i in range(30):
+        res = client.post(
+            "/api/v1/lists", json={"name": f"Quota list {i}"}, headers=auth(user)
+        )
+        assert res.status_code == 201, res.text
+        created.append(res.json()["data"]["id"])
+
+    res = client.post(
+        "/api/v1/lists", json={"name": "One too many"}, headers=auth(user)
+    )
+    assert res.status_code == 409
+    assert res.json()["error"]["code"] == "CONFLICT"
+
+    # Admin raises this user's quota; creation now succeeds.
+    res = client.patch(
+        f"/api/v1/admin/users/{user['id']}/max-lists",
+        json={"max_lists": 31},
+        headers=auth(admin_user),
+    )
+    assert res.status_code == 200
+    assert res.json()["data"]["max_lists"] == 31
+
+    res = client.post(
+        "/api/v1/lists", json={"name": "One too many"}, headers=auth(user)
+    )
+    assert res.status_code == 201
+    created.append(res.json()["data"]["id"])
+
+    for lid in created:
+        client.delete(f"/api/v1/lists/{lid}", headers=auth(user))
+
+
+def test_list_quota_does_not_apply_to_admin(client, admin_user):
+    created = []
+    for i in range(31):
+        res = client.post(
+            "/api/v1/lists", json={"name": f"Admin quota list {i}"}, headers=auth(admin_user)
+        )
+        assert res.status_code == 201, res.text
+        created.append(res.json()["data"]["id"])
+    for lid in created:
+        client.delete(f"/api/v1/lists/{lid}", headers=auth(admin_user))
+
+
+def test_create_list_from_filter(client, test_user, problem):
+    # The `problem` fixture always creates a "medium" difficulty problem.
+    res = client.post(
+        "/api/v1/lists/from-filter",
+        json={"name": f"From filter {uuid.uuid4().hex[:6]}", "difficulty": "medium"},
+        headers=auth(test_user),
+    )
+    assert res.status_code == 201, res.text
+    body = res.json()["data"]
+    assert body["is_custom"] is True
+    assert body["problem_count"] >= 1
+    client.delete(f"/api/v1/lists/{body['id']}", headers=auth(test_user))
+
+
+def test_create_list_from_filter_requires_a_filter(client, test_user):
+    res = client.post(
+        "/api/v1/lists/from-filter",
+        json={"name": "No filters"},
+        headers=auth(test_user),
+    )
+    assert res.status_code == 422
+
+
+def test_create_list_from_filter_no_matches(client, test_user):
+    res = client.post(
+        "/api/v1/lists/from-filter",
+        json={"name": "No matches", "q": uuid.uuid4().hex},
+        headers=auth(test_user),
+    )
+    assert res.status_code == 400

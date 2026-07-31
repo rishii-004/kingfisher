@@ -118,3 +118,49 @@ def test_admin_user_management(client, admin_user, test_user):
         f"/api/v1/admin/users/{admin_user['id']}", headers=auth(admin_user)
     )
     assert res.status_code == 400
+
+
+def test_update_max_lists_requires_admin(client, test_user):
+    res = client.patch(
+        f"/api/v1/admin/users/{test_user['id']}/max-lists",
+        json={"max_lists": 50},
+        headers=auth(test_user),
+    )
+    assert res.status_code == 403
+
+
+def test_update_max_lists(client, admin_user, test_user):
+    res = client.patch(
+        f"/api/v1/admin/users/{test_user['id']}/max-lists",
+        json={"max_lists": 50},
+        headers=auth(admin_user),
+    )
+    assert res.status_code == 200
+    assert res.json()["data"]["max_lists"] == 50
+
+    # restore the default so other tests relying on the 30-list quota
+    # for this session-scoped user aren't affected
+    res = client.patch(
+        f"/api/v1/admin/users/{test_user['id']}/max-lists",
+        json={"max_lists": 30},
+        headers=auth(admin_user),
+    )
+    assert res.status_code == 200
+
+
+def test_update_max_lists_rejects_negative(client, admin_user, test_user):
+    res = client.patch(
+        f"/api/v1/admin/users/{test_user['id']}/max-lists",
+        json={"max_lists": -1},
+        headers=auth(admin_user),
+    )
+    assert res.status_code == 422
+
+
+def test_update_max_lists_user_not_found(client, admin_user):
+    res = client.patch(
+        "/api/v1/admin/users/00000000-0000-0000-0000-000000000000/max-lists",
+        json={"max_lists": 10},
+        headers=auth(admin_user),
+    )
+    assert res.status_code == 404

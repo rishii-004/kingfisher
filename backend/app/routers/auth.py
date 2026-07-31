@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.schemas.auth import (
@@ -47,6 +48,7 @@ def register(body: UserCreate, db: Session = Depends(get_db)):
         email=body.email,
         username=body.username,
         hashed_password=hash_password(body.password),
+        max_lists=settings.DEFAULT_MAX_LISTS,
     )
     db.add(user)
     db.commit()

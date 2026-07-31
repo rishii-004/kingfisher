@@ -10,7 +10,7 @@ from app.models.review import Review
 from app.models.solve_log import SolveLog
 from app.models.user import User
 from app.models.user_problem import UserProblem
-from app.schemas.auth import UserResponse
+from app.schemas.auth import MaxListsUpdate, UserResponse
 from app.schemas.envelope import Envelope, Paginated
 from app.schemas.list import (
     ListCreate,
@@ -285,6 +285,23 @@ def toggle_admin(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
     user.is_admin = not user.is_admin
+    db.commit()
+    db.refresh(user)
+    return Envelope(data=UserResponse.model_validate(user))
+
+
+@router.patch("/users/{user_id}/max-lists", response_model=Envelope[UserResponse])
+def update_max_lists(
+    user_id: str,
+    body: MaxListsUpdate,
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    user.max_lists = body.max_lists
     db.commit()
     db.refresh(user)
     return Envelope(data=UserResponse.model_validate(user))
