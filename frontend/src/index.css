@@ -1,15 +1,190 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface-50: #f8fafc;
-  --color-surface-100: #f1f5f9;
-  --color-surface-200: #e2e8f0;
-  --color-surface-300: #cbd5e1;
-  --color-surface-400: #94a3b8;
-  --color-surface-500: #64748b;
-  --color-surface-600: #475569;
-  --color-surface-700: #334155;
-  --color-surface-800: #1e293b;
-  --color-surface-900: #0f172a;
-  --color-surface-950: #020617;
+  --color-surface-50: #2a2c2e;
+  --color-surface-100: #2a2c2e;
+  --color-surface-200: #383a3c;
+  --color-surface-300: #9ea1a5;
+  --color-surface-400: #b0b3b6;
+  --color-surface-500: #c0c2c5;
+  --color-surface-600: #cdcfd2;
+  --color-surface-700: #dcdddf;
+  --color-surface-800: #e6e7e9;
+  --color-surface-900: #ececed;
+  --color-surface-950: #f5f6f6;
+}
+
+@layer base {
+  :root {
+    --bg-glow: rgba(249, 115, 22, 0.04);
+  }
+
+  body {
+    background-color: var(--color-surface-50);
+    color: var(--color-surface-700);
+    font-family: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::selection {
+    background-color: rgba(244, 63, 94, 0.3);
+    color: #fafaf9;
+  }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(158, 161, 165, 0.25); }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(158, 161, 165, 0.45); }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .glass-card {
+    background: var(--color-surface-100);
+  }
+
+  .glass-card-accent {
+    background: var(--color-surface-100);
+  }
+
+  .glass-hover {
+    background: var(--color-surface-100);
+    transition: background 0.12s ease;
+  }
+  .glass-hover:hover {
+    background: var(--color-surface-200);
+  }
+
+  .input-glass {
+    background: var(--color-surface-50);
+    border: 1px solid var(--color-surface-300);
+    color: var(--color-surface-800);
+    outline: none;
+    font-family: inherit;
+  }
+  .input-glass:focus {
+    border-color: #e11d48;
+  }
+  .input-glass::placeholder {
+    color: var(--color-surface-500);
+  }
+
+  .btn-primary {
+    background: #e11d48;
+    color: #fafaf9;
+    font-weight: 700;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .btn-primary:hover {
+    background: #be123c;
+  }
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--color-surface-700);
+    font-weight: 600;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    border: 1px solid var(--color-surface-300);
+    cursor: pointer;
+  }
+  .btn-secondary:hover {
+    background: var(--color-surface-200);
+    color: var(--color-surface-900);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-surface-500);
+    font-weight: 600;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+  .btn-ghost:hover {
+    color: var(--color-surface-900);
+    background: var(--color-surface-200);
+  }
+
+  .btn-danger {
+    background: rgba(239, 68, 68, 0.08);
+    color: #dc2626;
+    font-weight: 600;
+    padding: 0.5rem 1.25rem;
+    font-size: 0.875rem;
+    border: 1px solid rgba(239, 68, 68, 0.15);
+    cursor: pointer;
+  }
+  .btn-danger:hover {
+    background: rgba(239, 68, 68, 0.15);
+  }
+
+  .badge-easy {
+    background: rgba(34, 197, 94, 0.08);
+    color: #16a34a;
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    padding: 0.125rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge-medium {
+    background: rgba(234, 179, 8, 0.08);
+    color: #ca8a04;
+    border: 1px solid rgba(234, 179, 8, 0.2);
+    padding: 0.125rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .select-glass {
+    appearance: none;
+    background-color: var(--color-surface-50);
+    border: 1px solid var(--color-surface-300);
+    color: var(--color-surface-700);
+    font-family: inherit;
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    cursor: pointer;
+    outline: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 24 24' stroke='%239ea1a5' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 0.875rem;
+  }
+  .select-glass:focus {
+    border-color: #e11d48;
+  }
+  .select-glass option {
+    background: var(--color-surface-100);
+    color: var(--color-surface-800);
+  }
+
+  .badge-hard {
+    background: rgba(239, 68, 68, 0.08);
+    color: #dc2626;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    padding: 0.125rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
 }

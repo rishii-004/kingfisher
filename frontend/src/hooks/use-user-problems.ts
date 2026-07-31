@@ -40,6 +40,7 @@ export function useSetProblemStatus() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["user-problems"] });
       qc.invalidateQueries({ queryKey: ["user-problem"] });
+      qc.invalidateQueries({ queryKey: ["lists"] });
     },
   });
 }

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { useAuth } from "../hooks/use-auth";
 
 export default function Register() {
@@ -27,81 +28,96 @@ export default function Register() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-950">
-      <div className="w-full max-w-sm rounded-xl bg-surface-900 p-8 shadow-lg">
-        <h1 className="mb-6 text-2xl font-bold text-white">Create account</h1>
+    <div className="flex min-h-screen items-center justify-center bg-surface-50">
 
-        {(register.error || matchError) && (
-          <div className="mb-4 rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">
-            {matchError || (register.error as Error).message}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="relative z-10 w-full max-w-sm"
+      >
+        <div className="glass-card-accent p-8">
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-black text-surface-900 tracking-tight">sheets</h1>
+            <p className="mt-1.5 text-sm text-surface-400">Create your account</p>
           </div>
-        )}
 
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div>
-            <label className="mb-1 block text-sm text-surface-400" htmlFor="username">Username</label>
-            <input
-              id="username"
-              type="text"
-              required
-              minLength={3}
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-lg bg-surface-800 px-4 py-2 text-white placeholder-surface-500 outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500"
-              placeholder="johndoe"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-surface-400" htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg bg-surface-800 px-4 py-2 text-white placeholder-surface-500 outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500"
-              placeholder="you@example.com"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-surface-400" htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg bg-surface-800 px-4 py-2 text-white placeholder-surface-500 outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500"
-              placeholder="••••••••"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm text-surface-400" htmlFor="confirm">Confirm password</label>
-            <input
-              id="confirm"
-              type="password"
-              required
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              className="w-full rounded-lg bg-surface-800 px-4 py-2 text-white placeholder-surface-500 outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500"
-              placeholder="••••••••"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={register.isPending}
-            className="w-full rounded-lg bg-blue-600 py-2 font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {register.isPending ? "Creating account..." : "Create account"}
-          </button>
-        </form>
+          {(register.error || matchError) && (
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="mb-4 bg-red-500/10 border border-red-500/20 px-4 py-2.5 text-sm text-red-400"
+            >
+              {matchError || (register.error as Error).message}
+            </motion.div>
+          )}
 
-        <p className="mt-4 text-center text-sm text-surface-400">
-          Already have an account?{" "}
-          <Link to="/login" className="text-blue-400 hover:underline">Sign in</Link>
-        </p>
-      </div>
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-surface-300" htmlFor="username">Username</label>
+              <input
+                id="username"
+                type="text"
+                required
+                minLength={3}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="input-glass w-full px-4 py-2.5 text-sm"
+                placeholder="johndoe"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-surface-300" htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input-glass w-full px-4 py-2.5 text-sm"
+                placeholder="you@example.com"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-surface-300" htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                required
+                minLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input-glass w-full px-4 py-2.5 text-sm"
+                placeholder="••••••••"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-surface-300" htmlFor="confirm">Confirm password</label>
+              <input
+                id="confirm"
+                type="password"
+                required
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                className="input-glass w-full px-4 py-2.5 text-sm"
+                placeholder="••••••••"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={register.isPending}
+              className="btn-primary w-full py-2.5"
+            >
+              {register.isPending ? "Creating account..." : "Create account"}
+            </button>
+          </form>
+
+          <p className="mt-5 text-center text-sm text-surface-500">
+            Already have an account?{" "}
+            <Link to="/login" className="text-rose-600 hover:text-rose-500 font-medium transition-colors">Sign in</Link>
+          </p>
+        </div>
+      </motion.div>
     </div>
   );
 }

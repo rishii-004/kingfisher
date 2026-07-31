@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from "react";
+import { motion } from "framer-motion";
 import { useCreateSolveLog } from "../../hooks/use-solve-log";
 import MistakeTagSelect from "./MistakeTagSelect";
+import Select from "../../components/Select";
+import Checkbox from "../../components/Checkbox";
 import type { MistakeTag } from "../../types";
 
 interface Props {
@@ -11,8 +14,8 @@ interface Props {
 
 const timeOptions = [
   { value: "<15m", label: "Less than 15 min" },
-  { value: "15-30m", label: "15–30 min" },
-  { value: "30-60m", label: "30–60 min" },
+  { value: "15-30m", label: "15\u201330 min" },
+  { value: "30-60m", label: "30\u201360 min" },
   { value: "1h+", label: "1 hour+" },
 ] as const;
 
@@ -33,11 +36,25 @@ export default function SolveLogPopup({ problemId, problemTitle, onClose }: Prop
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-xl bg-surface-900 p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 " onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.2 }}
+        className="w-full max-w-lg glass-card-accent p-6 "
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-5">
-          <h2 className="text-lg font-semibold text-white">Solved!</h2>
-          <p className="text-sm text-surface-400 mt-1">{problemTitle}</p>
+          <div className="flex items-center gap-3 mb-1">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-500/20 text-rose-600">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </span>
+            <h2 className="text-lg font-semibold text-surface-900">Solved!</h2>
+          </div>
+          <p className="text-sm text-surface-400 ml-11">{problemTitle}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -53,7 +70,7 @@ export default function SolveLogPopup({ problemId, problemTitle, onClose }: Prop
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={5}
-              className="w-full rounded-lg bg-surface-800 px-4 py-2 text-white placeholder-surface-500 outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500 resize-none font-mono text-sm"
+              className="input-glass w-full px-4 py-2.5 text-sm font-mono resize-none"
               placeholder="## Intuition
 
 Used a hashmap for O(n) lookup..."
@@ -62,48 +79,41 @@ Used a hashmap for O(n) lookup..."
 
           <div>
             <label className="mb-2 block text-sm font-medium text-surface-300" htmlFor="time">Time spent</label>
-            <select
-              id="time"
+            <Select
               value={timeSpent}
-              onChange={(e) => setTimeSpent(e.target.value as typeof timeSpent)}
-              className="w-full rounded-lg bg-surface-800 px-4 py-2 text-white outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500"
-            >
-              {timeOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+              onChange={(v) => setTimeSpent(v as typeof timeSpent)}
+              options={timeOptions.map((o) => ({ value: o.value, label: o.label }))}
+              className="w-full"
+            />
           </div>
 
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={scheduleReview}
-              onChange={(e) => setScheduleReview(e.target.checked)}
-              className="h-4 w-4 rounded border-surface-700 bg-surface-800 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-surface-300">Schedule review (1 week)</span>
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <Checkbox checked={scheduleReview} onChange={() => setScheduleReview(!scheduleReview)} />
+            <span className="text-sm text-surface-300 group-hover:text-surface-900 transition-colors">Schedule review (1 week)</span>
           </label>
 
           {createSolveLog.error && (
-            <div className="rounded-lg bg-red-500/10 px-4 py-2 text-sm text-red-400">
+            <motion.div
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-red-500/10 border border-red-500/20 px-4 py-2.5 text-sm text-red-400"
+            >
               {(createSolveLog.error as Error).message}
-            </div>
+            </motion.div>
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm text-surface-400 hover:text-white transition-colors">
-              Cancel
-            </button>
+            <button type="button" onClick={onClose} className="btn-ghost text-sm">Cancel</button>
             <button
               type="submit"
               disabled={createSolveLog.isPending}
-              className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="btn-primary"
             >
               {createSolveLog.isPending ? "Saving..." : "Save"}
             </button>
           </div>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 }

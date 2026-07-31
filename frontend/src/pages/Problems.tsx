@@ -1,108 +1,78 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { useProblems, usePlatforms } from "../hooks/use-problems";
 import { useSetProblemStatus } from "../hooks/use-user-problems";
+import { useLists, useAddProblemToList, useListContainsProblem } from "../hooks/use-lists";
+import { TOPICS } from "../lib/topics";
+import { COMPANIES, companyColor } from "../lib/companies";
+import { platformColor } from "../lib/platforms";
+import { toast } from "../lib/toast";
 import SolveLogPopup from "../features/solve-log/SolveLogPopup";
+import Select from "../components/Select";
+import ProblemRow from "../components/ProblemRow";
+import { SkeletonBar } from "../components/Skeleton";
+import EmptyState from "../components/EmptyState";
+import ErrorAlert from "../components/ErrorAlert";
+import PageHeader from "../components/PageHeader";
+import Pagination from "../components/Pagination";
 import type { Problem } from "../types";
 
 const difficulties = ["easy", "medium", "hard"] as const;
 
-const difficultyColor: Record<string, string> = {
-  easy: "text-green-400 bg-green-500/10",
-  medium: "text-yellow-400 bg-yellow-500/10",
-  hard: "text-red-400 bg-red-500/10",
+const container = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.04 } },
 };
-
-const statusColors: Record<string, string> = {
-  todo: "text-surface-500 bg-surface-800",
-  solving: "text-blue-400 bg-blue-500/10",
-  solved: "text-green-400 bg-green-500/10",
-  skipped: "text-surface-500 bg-surface-800 line-through",
-};
-
-const statusLabels: Record<string, string> = {
-  todo: "Todo",
-  solving: "Solving",
-  solved: "Solved",
-  skipped: "Skipped",
-};
-
-type ProblemStatus = "todo" | "solving" | "solved" | "skipped";
-
-const nextStatuses: Record<string, ProblemStatus[]> = {
-  todo: ["solving", "skipped"],
-  solving: ["solved", "skipped", "todo"],
-  solved: [],
-  skipped: ["todo"],
-};
-
-interface ProblemRowProps {
-  problem: Problem;
-  status: ProblemStatus;
-  onStatusChange: (problemId: string, status: ProblemStatus) => void;
-  disabled: boolean;
-}
-
-function ProblemRow({ problem, status, onStatusChange, disabled }: ProblemRowProps) {
-  return (
-    <div className="flex items-center gap-4 rounded-lg border border-surface-800 px-4 py-3 hover:bg-surface-800/50 transition-colors">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white truncate">{problem.title}</span>
-          <span className="text-xs text-surface-500">#{problem.slug}</span>
-        </div>
-        <div className="mt-1 flex flex-wrap gap-2">
-          {problem.topic_tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="rounded-full bg-surface-800 px-2 py-0.5 text-xs text-surface-400">
-              {tag}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${difficultyColor[problem.difficulty]}`}>
-        {problem.difficulty}
-      </span>
-
-      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[status]}`}>
-        {statusLabels[status]}
-      </span>
-
-      <div className="flex gap-1">
-        {nextStatuses[status].map((ns) => (
-          <button
-            key={ns}
-            onClick={() => onStatusChange(problem.id, ns)}
-            disabled={disabled}
-            className="rounded-md bg-surface-800 px-2 py-1 text-xs text-surface-400 hover:bg-surface-700 hover:text-white transition-colors disabled:opacity-40 capitalize"
-          >
-            {ns === "solved" ? "✓" : ns === "skipped" ? "—" : "→"}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export default function Problems() {
   const [query, setQuery] = useState("");
   const [platform, setPlatform] = useState("");
   const [difficulty, setDifficulty] = useState("");
+  const [topic, setTopic] = useState("");
+  const [company, setCompany] = useState("");
   const [page, setPage] = useState(1);
 
-  const [statusMap, setStatusMap] = useState<Record<string, ProblemStatus>>({});
+  const [statusMap, setStatusMap] = useState<Record<string, string>>({});
   const [solveLogProblem, setSolveLogProblem] = useState<{ id: string; title: string } | null>(null);
+  const [addToListProblem, setAddToListProblem] = useState<Problem | null>(null);
 
-  const { data, isLoading, error } = useProblems({ q: query || undefined, platform: platform || undefined, difficulty: difficulty || undefined, page, per_page: 20 });
+  const { data, isLoading, error } = useProblems({
+    q: query || undefined,
+    platform: platform || undefined,
+    difficulty: difficulty || undefined,
+    topic: topic || undefined,
+    company: company || undefined,
+    page,
+    per_page: 20,
+  });
   const { data: platforms } = usePlatforms();
+  const { data: customLists } = useLists("custom");
+  const { data: membership } = useListContainsProblem(addToListProblem?.id ?? null);
   const setStatus = useSetProblemStatus();
+  const addToList = useAddProblemToList();
 
-  const handleStatusChange = (problemId: string, newStatus: ProblemStatus) => {
+  const handleSolve = (problemId: string, toSolved: boolean) => {
+    setStatusMap((prev) => ({ ...prev, [problemId]: toSolved ? "solved" : "todo" }));
     setStatus.mutate(
-      { problemId, status: newStatus },
+      { problemId, status: toSolved ? "solved" : "todo" },
       {
         onSuccess: (res) => {
-          setStatusMap((prev) => ({ ...prev, [problemId]: newStatus }));
-          if (res.solve_log_required) {
+          if (toSolved && res.solve_log_required) {
+            const problem = (data?.items ?? []).find((p) => p.id === problemId);
+            if (problem) setSolveLogProblem({ id: problemId, title: problem.title });
+          }
+        },
+      },
+    );
+  };
+
+  const handleStatusChange = (problemId: string, newStatus: string) => {
+    setStatusMap((prev) => ({ ...prev, [problemId]: newStatus }));
+    setStatus.mutate(
+      { problemId, status: newStatus as "todo" | "solving" | "solved" | "skipped" },
+      {
+        onSuccess: (res) => {
+          if (newStatus === "solved" && res.solve_log_required) {
             const problem = (data?.items ?? []).find((p) => p.id === problemId);
             if (problem) setSolveLogProblem({ id: problemId, title: problem.title });
           }
@@ -113,93 +83,107 @@ export default function Problems() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Problems</h1>
+      <PageHeader title="Problems" description="Browse and track your problems" />
+
+      <div className="max-w-sm">
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-surface-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+          </svg>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+            placeholder="Search problems..."
+            className="bg-surface-200/30 w-full pl-9 pr-3 py-2 text-sm text-surface-800 outline-none placeholder:text-surface-500"
+          />
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setPage(1); }}
-          placeholder="Search problems..."
-          className="min-w-0 flex-1 rounded-lg bg-surface-800 px-4 py-2 text-white placeholder-surface-500 outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500"
-        />
-        <select
+      <div className="flex flex-wrap gap-2">
+        <Select
           value={platform}
-          onChange={(e) => { setPlatform(e.target.value); setPage(1); }}
-          className="rounded-lg bg-surface-800 px-3 py-2 text-white outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">All platforms</option>
-          {platforms?.map((p) => (
-            <option key={p.value} value={p.value}>{p.label}</option>
-          ))}
-        </select>
-        <select
+          onChange={(v) => { setPlatform(v); setPage(1); }}
+          placeholder="Platform"
+          bordered={false}
+          options={[
+            { value: "", label: "All platforms" },
+            ...(platforms?.map((p) => ({ value: p.value, label: p.label, labelClass: platformColor(p.value) })) ?? []),
+          ]}
+        />
+        <Select
           value={difficulty}
-          onChange={(e) => { setDifficulty(e.target.value); setPage(1); }}
-          className="rounded-lg bg-surface-800 px-3 py-2 text-white outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">All difficulties</option>
-          {difficulties.map((d) => (
-            <option key={d} value={d} className="capitalize">{d}</option>
-          ))}
-        </select>
+          onChange={(v) => { setDifficulty(v); setPage(1); }}
+          placeholder="Difficulty"
+          bordered={false}
+          options={[
+            { value: "", label: "All difficulties" },
+            ...difficulties.map((d) => ({ value: d, label: d.charAt(0).toUpperCase() + d.slice(1) })),
+          ]}
+        />
+        <Select
+          value={topic}
+          onChange={(v) => { setTopic(v); setPage(1); }}
+          placeholder="Topic"
+          bordered={false}
+          options={[
+            { value: "", label: "All topics" },
+            ...TOPICS.map((t) => ({ value: t, label: t })),
+          ]}
+        />
+        <Select
+          value={company}
+          onChange={(v) => { setCompany(v); setPage(1); }}
+          placeholder="Company"
+          bordered={false}
+          options={[
+            { value: "", label: "All companies" },
+            ...COMPANIES.map((c) => ({ value: c, label: c, labelClass: companyColor(c) })),
+          ]}
+        />
       </div>
 
       {isLoading && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-14 animate-pulse rounded-lg bg-surface-800" />
+            <SkeletonBar key={i} />
           ))}
         </div>
       )}
 
-      {error && (
-        <div className="rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          {(error as Error).message}
-        </div>
-      )}
+      {error && <ErrorAlert message={(error as Error).message} />}
 
       {data && (
-        <>
-          <div className="space-y-2">
-            {data.items.map((problem) => (
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="space-y-1"
+        >
+          {data.items.length === 0 ? (
+            <EmptyState message="No problems found." />
+          ) : (
+            data.items.map((problem) => (
               <ProblemRow
                 key={problem.id}
                 problem={problem}
-                status={statusMap[problem.id] ?? "todo"}
+                solved={statusMap[problem.id] === "solved"}
+                onSolve={handleSolve}
                 onStatusChange={handleStatusChange}
+                onAddToList={setAddToListProblem}
+                status={statusMap[problem.id] ?? "todo"}
                 disabled={setStatus.isPending}
               />
-            ))}
-          </div>
-
-          {data.items.length === 0 && (
-            <p className="text-center text-surface-500 py-12">No problems found.</p>
+            ))
           )}
 
-          <div className="flex items-center justify-between text-sm text-surface-400">
-            <span>{data.total} problem{data.total !== 1 ? "s" : ""}</span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="rounded-lg bg-surface-800 px-3 py-1.5 text-white hover:bg-surface-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <span className="text-surface-500">Page {data.page} of {Math.max(1, Math.ceil(data.total / data.per_page))}</span>
-              <button
-                onClick={() => setPage((p) => p + 1)}
-                disabled={page >= Math.ceil(data.total / data.per_page)}
-                className="rounded-lg bg-surface-800 px-3 py-1.5 text-white hover:bg-surface-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            </div>
-          </div>
-        </>
+          <Pagination
+            page={page}
+            total={data.total}
+            perPage={data.per_page}
+            onPageChange={setPage}
+          />
+        </motion.div>
       )}
 
       {solveLogProblem && (
@@ -208,6 +192,58 @@ export default function Problems() {
           problemTitle={solveLogProblem.title}
           onClose={() => setSolveLogProblem(null)}
         />
+      )}
+
+      {addToListProblem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setAddToListProblem(null)}>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="w-full max-w-md glass-card p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="mb-1 text-lg font-semibold text-surface-900">Add to a sheet</h2>
+            <p className="mb-4 truncate text-sm text-surface-400">{addToListProblem.title}</p>
+            <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+              {(customLists?.items ?? []).length === 0 ? (
+                <EmptyState message="No custom sheets yet. Create one on the Sheets page." />
+              ) : (
+                (customLists?.items ?? []).map((list) => (
+                  <button
+                    key={list.id}
+                    onClick={() =>
+                      addToList.mutate(
+                        { listId: list.id, problemId: addToListProblem.id },
+                        {
+                          onSuccess: () => {
+                            setAddToListProblem(null);
+                            toast.success(`Added to "${list.name}"`);
+                          },
+                          onError: (err) => toast.error((err as Error).message),
+                        },
+                      )
+                    }
+                    disabled={addToList.isPending || membership?.get(list.id)}
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors disabled:opacity-40 ${
+                      membership?.get(list.id)
+                        ? "text-surface-500"
+                        : "text-surface-400 hover:bg-surface-200 hover:text-surface-900"
+                    }`}
+                  >
+                    <span className="truncate">{list.name}</span>
+                    <span className="shrink-0 text-xs text-surface-500">
+                      {membership?.get(list.id) ? "Already added" : `${list.problem_count} problems`}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button type="button" onClick={() => setAddToListProblem(null)} className="btn-ghost text-sm">Cancel</button>
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   );
