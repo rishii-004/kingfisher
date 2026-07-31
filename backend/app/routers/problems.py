@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -5,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.list_problem import ListProblem
 from app.models.problem import Problem
+from app.schemas.envelope import Envelope, Paginated
 from app.schemas.problem import (
     PlatformInfo,
     PlatformsResponse,
@@ -12,7 +15,7 @@ from app.schemas.problem import (
 )
 from app.services.auth import get_current_user
 
-router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter()
 
 
 PLATFORMS = [
@@ -23,7 +26,16 @@ PLATFORMS = [
 ]
 
 
-@router.get("")
+@router.get("/platforms", response_model=Envelope[PlatformsResponse])
+def get_platforms():
+    return Envelope(data=PlatformsResponse(platforms=PLATFORMS))
+
+
+@router.get(
+    "",
+    response_model=Envelope[Paginated[ProblemResponse]],
+    dependencies=[Depends(get_current_user)],
+)
 def list_problems(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
@@ -54,27 +66,34 @@ def list_problems(
 
     total = query.count()
     items = query.offset((page - 1) * per_page).limit(per_page).all()
-    return {
-        "data": {
-            "items": [ProblemResponse.model_validate(p) for p in items],
-            "total": total,
-            "page": page,
-            "per_page": per_page,
-        },
-        "error": None,
-    }
+    return Envelope(
+        data=Paginated(
+            items=[ProblemResponse.model_validate(p) for p in items],
+            total=total,
+            page=page,
+            per_page=per_page,
+        )
+    )
 
 
-@router.get("/{problem_id}", response_model=ProblemResponse)
+@router.get(
+    "/{problem_id}",
+    response_model=Envelope[ProblemResponse],
+    dependencies=[Depends(get_current_user)],
+)
 def get_problem(problem_id: str, db: Session = Depends(get_db)):
-    problem = db.query(Problem).filter(
-        or_(Problem.id == problem_id, Problem.slug == problem_id)
-    ).first()
+    query = db.query(Problem)
+    try:
+        uuid.UUID(problem_id)
+    except ValueError:
+        query = query.filter(Problem.slug == problem_id)
+    else:
+        query = query.filter(
+            or_(Problem.id == problem_id, Problem.slug == problem_id)
+        )
+    problem = query.first()
     if not problem:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found")
-    return problem
-
-
-@router.get("/platforms", response_model=PlatformsResponse)
-def get_platforms():
-    return PlatformsResponse(platforms=PLATFORMS)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found"
+        )
+    return Envelope(data=ProblemResponse.model_validate(problem))
