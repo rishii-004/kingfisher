@@ -22,6 +22,7 @@ services:
       ENVIRONMENT: production
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
       INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-}
+      DEFAULT_MAX_LISTS: ${DEFAULT_MAX_LISTS:-30}
     depends_on:
       db:
         condition: service_healthy
