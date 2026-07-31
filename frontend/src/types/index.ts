@@ -124,15 +124,67 @@ export interface DifficultyBreakdown {
   easy: number;
   medium: number;
   hard: number;
+  easy_total: number;
+  medium_total: number;
+  hard_total: number;
 }
 
-export interface TimeTrendEntry {
-  bucket: string;
-  count: number;
+export interface TimeSpentDay {
+  date: string;
+  day: string;
+  minutes: number;
+}
+
+export interface CompanyMastery {
+  company: string;
+  solved: number;
+  total: number;
 }
 
 export interface SearchResult {
   type: "problem" | "note" | "list";
   relevance: number;
   data: Problem | ProblemList | { problem_id: string; problem_title: string; notes_snippet: string };
+}
+
+export interface StreakData {
+  current_streak: number;
+  longest_streak: number;
+  last_active_date: string;
+}
+
+export interface WeeklyPattern {
+  day: string;
+  count: number;
+}
+
+export interface TopicMastery {
+  topic: string;
+  solved: number;
+  total: number;
+  reviews_completed: number;
+  mistakes: number;
+}
+
+export interface MistakeBreakdown {
+  tag: string;
+  label: string;
+  count: number;
+}
+
+export interface ReviewPipeline {
+  overdue: number;
+  due_today: number;
+  due_this_week: number;
+  due_next_week: number;
+  due_later: number;
+}
+
+export interface ConsistencyData {
+  total_solved: number;
+  solved_this_month: number;
+  solved_last_7_days: number;
+  solved_last_30_days: number;
+  current_streak: number;
+  longest_streak: number;
 }

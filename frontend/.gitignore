@@ -26,3 +26,7 @@ dist-ssr
 # dev-only (not committed)
 mock-server.mjs
 dev.sh
+
+# untracked mock data for frontend-only development
+src/lib/mock-data.ts
+src/lib/mock.ts

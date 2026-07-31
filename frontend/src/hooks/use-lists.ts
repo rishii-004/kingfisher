@@ -1,6 +1,57 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import api from "../lib/api";
-import type { ApiResponse, PaginatedResponse, ProblemList, ProblemListDetail } from "../types";
+import type { ApiResponse, PaginatedResponse, ProblemList, ProblemListDetail, UserProblem } from "../types";
+
+export interface ListDifficultyProgress {
+  easy: number;
+  medium: number;
+  hard: number;
+}
+
+export interface ListProgress {
+  list: ProblemList;
+  total: number;
+  solved: number;
+  inProgress: number;
+  difficulty: ListDifficultyProgress;
+}
+
+export function useListProgress() {
+  return useQuery({
+    queryKey: ["lists", "progress"],
+    queryFn: async () => {
+      const [listsRes, userRes] = await Promise.all([
+        api.get<ApiResponse<PaginatedResponse<ProblemList>>>("/lists?per_page=100"),
+        api.get<ApiResponse<PaginatedResponse<UserProblem>>>("/user/problems?per_page=100"),
+      ]);
+      if (listsRes.data.error) throw new Error(listsRes.data.error.message);
+      if (userRes.data.error) throw new Error(userRes.data.error.message);
+
+      const statusMap: Record<string, string> = {};
+      for (const up of userRes.data.data!.items) statusMap[up.problem_id] = up.status;
+
+      const progress = await Promise.all(
+        listsRes.data.data!.items.map(async (list) => {
+          const { data } = await api.get<ApiResponse<ProblemListDetail>>(`/lists/${list.id}`);
+          const problems = data.error ? [] : (data.data?.problems ?? []);
+          const difficulty: ListDifficultyProgress = { easy: 0, medium: 0, hard: 0 };
+          for (const p of problems) {
+            if (statusMap[p.id] === "solved") difficulty[p.difficulty] += 1;
+          }
+          return {
+            list,
+            total: problems.length,
+            solved: problems.filter((p) => statusMap[p.id] === "solved").length,
+            inProgress: problems.filter((p) => statusMap[p.id] === "solving").length,
+            difficulty,
+          };
+        }),
+      );
+
+      return progress.sort((a, b) => a.list.name.localeCompare(b.list.name));
+    },
+  });
+}
 
 export function useLists(type?: "global" | "custom") {
   return useQuery({
@@ -23,6 +74,26 @@ export function useList(id: string) {
       return data.data!;
     },
     enabled: !!id,
+  });
+}
+
+export function useListContainsProblem(problemId: string | null) {
+  const { data: customLists } = useLists("custom");
+  const listIds = (customLists?.items ?? []).map((l) => l.id);
+  const key = listIds.join(",");
+  return useQuery({
+    queryKey: ["list-membership", problemId, key],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        listIds.map(async (id) => {
+          const { data } = await api.get<ApiResponse<ProblemListDetail>>(`/lists/${id}`);
+          const contains = !data.error && data.data!.problems.some((p) => p.id === problemId);
+          return [id, contains] as const;
+        }),
+      );
+      return new Map(entries);
+    },
+    enabled: !!problemId && listIds.length > 0,
   });
 }
 
@@ -73,6 +144,23 @@ export function useForkList() {
       return data.data!;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lists"] }),
+  });
+}
+
+export function useResetListProgress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data } = await api.post<ApiResponse<null>>(`/lists/${id}/reset`);
+      if (data?.error) throw new Error(data.error.message);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lists"] });
+      qc.invalidateQueries({ queryKey: ["user-problems"] });
+      qc.invalidateQueries({ queryKey: ["user-problem"] });
+      qc.invalidateQueries({ queryKey: ["reviews"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+    },
   });
 }
 

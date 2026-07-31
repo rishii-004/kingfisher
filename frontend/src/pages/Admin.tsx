@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import api from "../lib/api";
 import { toast } from "../lib/toast";
 import { useAuth } from "../hooks/use-auth";
@@ -7,7 +8,18 @@ import type { ApiResponse, PaginatedResponse, Problem, ProblemList, User } from 
 
 type Tab = "problems" | "lists" | "users";
 
-// --- Problem Management ---
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06 },
+  },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0 },
+};
 
 function ProblemForm({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
@@ -36,16 +48,16 @@ function ProblemForm({ onDone }: { onDone: () => void }) {
     <form onSubmit={(e: FormEvent) => { e.preventDefault(); create.mutate(); }} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block text-sm text-surface-400">Title</label>
-          <input required value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-lg bg-surface-800 px-3 py-2 text-white outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500" />
+          <label className="mb-1.5 block text-sm font-medium text-surface-300">Title</label>
+          <input required value={title} onChange={(e) => setTitle(e.target.value)} className="input-glass w-full px-4 py-2.5 text-sm" />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-surface-400">Slug</label>
-          <input required value={slug} onChange={(e) => setSlug(e.target.value)} className="w-full rounded-lg bg-surface-800 px-3 py-2 text-white outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500" />
+          <label className="mb-1.5 block text-sm font-medium text-surface-300">Slug</label>
+          <input required value={slug} onChange={(e) => setSlug(e.target.value)} className="input-glass w-full px-4 py-2.5 text-sm" />
         </div>
         <div>
-          <label className="mb-1 block text-sm text-surface-400">Platform</label>
-          <select value={platform} onChange={(e) => setPlatform(e.target.value)} className="w-full rounded-lg bg-surface-800 px-3 py-2 text-white outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500">
+          <label className="mb-1.5 block text-sm font-medium text-surface-300">Platform</label>
+          <select value={platform} onChange={(e) => setPlatform(e.target.value)} className="input-glass w-full px-4 py-2.5 text-sm">
             <option value="leetcode">LeetCode</option>
             <option value="gfg">GeeksforGeeks</option>
             <option value="neetcode">NeetCode</option>
@@ -53,25 +65,25 @@ function ProblemForm({ onDone }: { onDone: () => void }) {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-sm text-surface-400">Difficulty</label>
-          <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="w-full rounded-lg bg-surface-800 px-3 py-2 text-white outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500">
+          <label className="mb-1.5 block text-sm font-medium text-surface-300">Difficulty</label>
+          <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)} className="input-glass w-full px-4 py-2.5 text-sm">
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
           </select>
         </div>
         <div className="sm:col-span-2">
-          <label className="mb-1 block text-sm text-surface-400">URL</label>
-          <input value={url} onChange={(e) => setUrl(e.target.value)} className="w-full rounded-lg bg-surface-800 px-3 py-2 text-white outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500" />
+          <label className="mb-1.5 block text-sm font-medium text-surface-300">URL</label>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} className="input-glass w-full px-4 py-2.5 text-sm" />
         </div>
         <div className="sm:col-span-2">
-          <label className="mb-1 block text-sm text-surface-400">Topic tags (comma separated)</label>
-          <input value={topics} onChange={(e) => setTopics(e.target.value)} placeholder="Arrays & Hashing, Two Pointers" className="w-full rounded-lg bg-surface-800 px-3 py-2 text-white placeholder-surface-500 outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500" />
+          <label className="mb-1.5 block text-sm font-medium text-surface-300">Topic tags (comma separated)</label>
+          <input value={topics} onChange={(e) => setTopics(e.target.value)} placeholder="Arrays & Hashing, Two Pointers" className="input-glass w-full px-4 py-2.5 text-sm" />
         </div>
       </div>
-      <div className="flex justify-end gap-3">
-        <button type="button" onClick={onDone} className="rounded-lg px-4 py-2 text-sm text-surface-400 hover:text-white transition-colors">Cancel</button>
-        <button type="submit" disabled={create.isPending} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50">
+      <div className="flex justify-end gap-3 pt-2">
+        <button type="button" onClick={onDone} className="btn-ghost text-sm">Cancel</button>
+        <button type="submit" disabled={create.isPending} className="btn-primary text-sm">
           {create.isPending ? "Creating..." : "Create"}
         </button>
       </div>
@@ -100,30 +112,30 @@ function ProblemsSection() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-white">Problems</h3>
-        <button onClick={() => setShowForm(!showForm)} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors">
+        <h3 className="font-semibold text-surface-900">Problems</h3>
+        <button onClick={() => setShowForm(!showForm)} className="btn-primary text-xs py-1.5 px-3">
           {showForm ? "Cancel" : "Add Problem"}
         </button>
       </div>
       {showForm && <ProblemForm onDone={() => setShowForm(false)} />}
-      {isLoading && <div className="h-32 animate-pulse rounded-lg bg-surface-800" />}
+      {isLoading && <div className="h-32 animate-pulse bg-surface-200/50" />}
       {data && (
-        <div className="space-y-2">
+        <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
           {data.items.map((p) => (
-            <div key={p.id} className="flex items-center gap-3 rounded-lg border border-surface-800 px-4 py-2.5 text-sm">
-              <span className="flex-1 text-white truncate">{p.title}</span>
-              <span className="text-xs text-surface-500 capitalize">{p.platform}</span>
-              <span className={`text-xs capitalize ${p.difficulty === "easy" ? "text-green-400" : p.difficulty === "medium" ? "text-yellow-400" : "text-red-400"}`}>{p.difficulty}</span>
-              <button onClick={() => del.mutate(p.id)} className="text-red-400 hover:text-red-300 text-xs">Delete</button>
-            </div>
+            <motion.div key={p.id} variants={item} className="glass-hover px-5 py-3">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="flex-1 text-surface-900 truncate">{p.title}</span>
+                <span className="text-xs text-surface-400 capitalize">{p.platform}</span>
+                <span className={`text-xs font-medium capitalize ${p.difficulty === "easy" ? "text-green-400" : p.difficulty === "medium" ? "text-yellow-400" : "text-red-400"}`}>{p.difficulty}</span>
+                <button onClick={() => del.mutate(p.id)} className="btn-danger text-xs py-1 px-2">Delete</button>
+              </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   );
 }
-
-// --- List Management ---
 
 function ListForm({ onDone }: { onDone: () => void }) {
   const qc = useQueryClient();
@@ -136,23 +148,23 @@ function ListForm({ onDone }: { onDone: () => void }) {
       if (data.error) throw new Error(data.error.message);
       return data.data!;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-lists"] }); toast.success("List created"); onDone(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-lists"] }); toast.success("Sheet created"); onDone(); },
     onError: (err) => toast.error((err as Error).message),
   });
 
   return (
     <form onSubmit={(e: FormEvent) => { e.preventDefault(); create.mutate(); }} className="space-y-4">
       <div>
-        <label className="mb-1 block text-sm text-surface-400">Name</label>
-        <input required value={name} onChange={(e) => setName(e.target.value)} className="w-full rounded-lg bg-surface-800 px-3 py-2 text-white outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500" />
+        <label className="mb-1.5 block text-sm font-medium text-surface-300">Name</label>
+        <input required value={name} onChange={(e) => setName(e.target.value)} className="input-glass w-full px-4 py-2.5 text-sm" />
       </div>
       <div>
-        <label className="mb-1 block text-sm text-surface-400">Description</label>
-        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} className="w-full rounded-lg bg-surface-800 px-3 py-2 text-white outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500 resize-none" />
+        <label className="mb-1.5 block text-sm font-medium text-surface-300">Description</label>
+        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} className="input-glass w-full px-4 py-2.5 text-sm resize-none" />
       </div>
-      <div className="flex justify-end gap-3">
-        <button type="button" onClick={onDone} className="rounded-lg px-4 py-2 text-sm text-surface-400 hover:text-white transition-colors">Cancel</button>
-        <button type="submit" disabled={create.isPending} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-50">
+      <div className="flex justify-end gap-3 pt-2">
+        <button type="button" onClick={onDone} className="btn-ghost text-sm">Cancel</button>
+        <button type="submit" disabled={create.isPending} className="btn-primary text-sm">
           {create.isPending ? "Creating..." : "Create"}
         </button>
       </div>
@@ -174,36 +186,36 @@ function ListsSection() {
 
   const del = useMutation({
     mutationFn: async (id: string) => { await api.delete(`/admin/lists/${id}`); },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-lists"] }); toast.success("List deleted"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-lists"] }); toast.success("Sheet deleted"); },
     onError: (err) => toast.error((err as Error).message),
   });
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-white">Global Lists</h3>
-        <button onClick={() => setShowForm(!showForm)} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 transition-colors">
-          {showForm ? "Cancel" : "Add List"}
+        <h3 className="font-semibold text-surface-900">Global Sheets</h3>
+        <button onClick={() => setShowForm(!showForm)} className="btn-primary text-xs py-1.5 px-3">
+          {showForm ? "Cancel" : "Add Sheet"}
         </button>
       </div>
       {showForm && <ListForm onDone={() => setShowForm(false)} />}
-      {isLoading && <div className="h-32 animate-pulse rounded-lg bg-surface-800" />}
+      {isLoading && <div className="h-32 animate-pulse bg-surface-200/50" />}
       {data && (
-        <div className="space-y-2">
+        <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
           {data.items.map((l) => (
-            <div key={l.id} className="flex items-center gap-3 rounded-lg border border-surface-800 px-4 py-2.5 text-sm">
-              <span className="flex-1 text-white truncate">{l.name}</span>
-              <span className="text-xs text-surface-500">{l.problem_count} problems</span>
-              <button onClick={() => del.mutate(l.id)} className="text-red-400 hover:text-red-300 text-xs">Delete</button>
-            </div>
+            <motion.div key={l.id} variants={item} className="glass-hover px-5 py-3">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="flex-1 text-surface-900 truncate">{l.name}</span>
+                <span className="text-xs text-surface-400">{l.problem_count} problems</span>
+                <button onClick={() => del.mutate(l.id)} className="btn-danger text-xs py-1 px-2">Delete</button>
+              </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   );
 }
-
-// --- User Management ---
 
 function UsersSection() {
   const qc = useQueryClient();
@@ -232,39 +244,46 @@ function UsersSection() {
 
   return (
     <div className="space-y-4">
-      <h3 className="font-semibold text-white">Users</h3>
-      <input
-        value={q} onChange={(e) => setQ(e.target.value)}
-        placeholder="Search users..."
-        className="w-full rounded-lg bg-surface-800 px-3 py-2 text-white placeholder-surface-500 outline-none ring-1 ring-surface-700 focus:ring-2 focus:ring-blue-500"
-      />
-      {isLoading && <div className="h-32 animate-pulse rounded-lg bg-surface-800" />}
+      <h3 className="font-semibold text-surface-900">Users</h3>
+      <div className="relative">
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-surface-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+        </svg>
+        <input
+          value={q} onChange={(e) => setQ(e.target.value)}
+          placeholder="Search users..."
+          className="input-glass w-full pl-10 pr-4 py-2.5 text-sm"
+        />
+      </div>
+      {isLoading && <div className="h-32 animate-pulse bg-surface-200/50" />}
       {data && (
-        <div className="space-y-2">
+        <motion.div variants={container} initial="hidden" animate="show" className="space-y-2">
           {data.items.map((u) => (
-            <div key={u.id} className="flex items-center gap-3 rounded-lg border border-surface-800 px-4 py-2.5 text-sm">
-              <div className="flex-1 min-w-0">
-                <span className="text-white truncate block">{u.username}</span>
-                <span className="text-xs text-surface-500">{u.email}</span>
+            <motion.div key={u.id} variants={item} className="glass-hover px-5 py-3">
+              <div className="flex items-center gap-3 text-sm">
+                <div className="flex-1 min-w-0">
+                  <span className="text-surface-900 truncate block font-medium">{u.username}</span>
+                  <span className="text-xs text-surface-500">{u.email}</span>
+                </div>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  u.is_admin ? "bg-rose-100 text-rose-600" : "bg-surface-200/70 text-surface-400"
+                }`}>
+                  {u.is_admin ? "Admin" : "User"}
+                </span>
+                <button onClick={() => toggleAdmin.mutate(u.id)} className="btn-secondary text-xs py-1 px-2">
+                  Toggle
+                </button>
+                <button onClick={() => del.mutate(u.id)} className="btn-danger text-xs py-1 px-2">
+                  Delete
+                </button>
               </div>
-              <span className={`rounded-full px-2 py-0.5 text-xs ${u.is_admin ? "bg-blue-500/10 text-blue-400" : "bg-surface-800 text-surface-500"}`}>
-                {u.is_admin ? "Admin" : "User"}
-              </span>
-              <button onClick={() => toggleAdmin.mutate(u.id)} className="text-xs text-surface-400 hover:text-white transition-colors">
-                Toggle
-              </button>
-              <button onClick={() => del.mutate(u.id)} className="text-xs text-red-400 hover:text-red-300 transition-colors">
-                Delete
-              </button>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   );
 }
-
-// --- Admin Page ---
 
 export default function Admin() {
   const { user } = useAuth();
@@ -280,25 +299,36 @@ export default function Admin() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Admin</h1>
+      <div>
+        <h1 className="text-2xl font-bold text-surface-900">Admin</h1>
+        <p className="text-sm text-surface-400 mt-0.5">Manage problems, sheets, and users</p>
+      </div>
 
-      <div className="flex gap-1 rounded-lg bg-surface-900 p-1 w-fit">
+      <div className="flex gap-1 bg-surface-200/50 p-1 w-fit border border-surface-300/50">
         {(["problems", "lists", "users"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`rounded-md px-4 py-1.5 text-sm font-medium capitalize transition-colors ${tab === t ? "bg-surface-800 text-white" : "text-surface-400 hover:text-white"}`}
+            className={`px-4 py-1.5 text-sm font-medium transition-all ${
+              tab === t ? "bg-surface-200 text-surface-900" : "text-surface-400 hover:text-surface-900"
+            }`}
           >
-            {t}
+            {t === "lists" ? "Sheets" : t === "users" ? "Users" : "Problems"}
           </button>
         ))}
       </div>
 
-      <div className="rounded-xl border border-surface-800 bg-surface-900 p-5">
+      <motion.div
+        key={tab}
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="glass-card p-5"
+      >
         {tab === "problems" && <ProblemsSection />}
         {tab === "lists" && <ListsSection />}
         {tab === "users" && <UsersSection />}
-      </div>
+      </motion.div>
     </div>
   );
 }

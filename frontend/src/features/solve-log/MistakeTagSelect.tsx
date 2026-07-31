@@ -23,10 +23,10 @@ export default function MistakeTagSelect({ selected, onChange }: Props) {
           key={tag}
           type="button"
           onClick={() => toggle(tag)}
-          className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+          className={`rounded-full px-3 py-1 text-xs font-medium border transition-all duration-200 ${
             selected.includes(tag)
-              ? "bg-blue-500/20 border-blue-500/40 text-blue-300"
-              : "bg-surface-800 border-surface-700 text-surface-400 hover:border-surface-500"
+              ? "bg-rose-500/20 border-rose-500/40 text-rose-500"
+              : "bg-surface-200/50 border-surface-300/50 text-surface-400 hover:border-white/[0.2] hover:text-surface-900"
           }`}
         >
           {label}
