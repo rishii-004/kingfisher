@@ -1,5 +1,7 @@
 import uuid
 
+from app.database import SessionLocal
+from app.models.user_problem import UserProblem
 from tests.conftest import auth
 
 
@@ -122,6 +124,46 @@ def test_fork_global_list(client, test_user, global_list):
 def test_reset_global_list(client, test_user, global_list):
     res = client.post(f"/api/v1/lists/{global_list}/reset", headers=auth(test_user))
     assert res.status_code == 204
+
+
+def test_reset_list_with_solved_problem_and_review(client, test_user, problem, global_list):
+    fork = client.post(f"/api/v1/lists/{global_list}/fork", headers=auth(test_user))
+    list_id = fork.json()["data"]["id"]
+    client.post(
+        f"/api/v1/lists/{list_id}/problems",
+        json={"problem_id": problem["id"]},
+        headers=auth(test_user),
+    )
+
+    client.put(
+        f"/api/v1/user/problems/{problem['id']}/status",
+        json={"status": "solved"},
+        headers=auth(test_user),
+    )
+    res = client.post(
+        f"/api/v1/user/problems/{problem['id']}/solve-log",
+        json={"mistake_tags": [], "notes": "n", "time_spent": "<15m"},
+        headers=auth(test_user),
+    )
+    assert res.status_code == 201
+
+    # A solve log with a scheduled review is exactly the case that
+    # previously violated the reviews.solve_log_id FK on reset (Review
+    # must be deleted before the SolveLog it points to).
+    res = client.post(f"/api/v1/lists/{list_id}/reset", headers=auth(test_user))
+    assert res.status_code == 204
+
+    res = client.get(f"/api/v1/user/problems/{problem['id']}", headers=auth(test_user))
+    assert res.json()["data"]["status"] == "todo"
+
+    res = client.get(f"/api/v1/user/problems/{problem['id']}/solve-log", headers=auth(test_user))
+    assert res.status_code == 404
+
+    client.delete(f"/api/v1/lists/{list_id}", headers=auth(test_user))
+    db = SessionLocal()
+    db.query(UserProblem).filter(UserProblem.problem_id == problem["id"]).delete()
+    db.commit()
+    db.close()
 
 
 def test_lists_require_auth(client):

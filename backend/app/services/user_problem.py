@@ -85,14 +85,14 @@ def reset_list_progress(db: Session, list_id: str, user_id: str) -> None:
         UserProblem.problem_id.in_(problem_ids),
     ).update({"status": "todo", "solved_at": None}, synchronize_session=False)
 
-    db.query(SolveLog).filter(
-        SolveLog.user_id == user_id,
-        SolveLog.problem_id.in_(problem_ids),
-    ).delete(synchronize_session=False)
-
     db.query(Review).filter(
         Review.user_id == user_id,
         Review.problem_id.in_(problem_ids),
+    ).delete(synchronize_session=False)
+
+    db.query(SolveLog).filter(
+        SolveLog.user_id == user_id,
+        SolveLog.problem_id.in_(problem_ids),
     ).delete(synchronize_session=False)
 
     db.commit()
