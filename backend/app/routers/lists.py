@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models.list import ProblemList
 from app.models.list_problem import ListProblem
 from app.models.problem import Problem
+from app.models.user import User
 from app.schemas.list import (
     ListCreate,
     ListDetailResponse,
@@ -15,7 +16,7 @@ from app.schemas.list import (
     ProblemResponse,
 )
 from app.services.auth import get_current_user
-from app.models.user import User
+from app.services.user_problem import reset_list_progress
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
@@ -120,6 +121,20 @@ def delete_list(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
     db.delete(lst)
     db.commit()
+
+
+@router.post("/{list_id}/reset", status_code=status.HTTP_204_NO_CONTENT)
+def reset_list(
+    list_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    lst = db.query(ProblemList).filter(
+        ProblemList.id == list_id, ProblemList.owner_id == current_user.id
+    ).first()
+    if not lst:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="List not found")
+    reset_list_progress(db, list_id, str(current_user.id))
 
 
 @router.post("/{list_id}/fork", response_model=ListResponse, status_code=status.HTTP_201_CREATED)
