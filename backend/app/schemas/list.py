@@ -30,8 +30,12 @@ class ListResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ProblemInList(ProblemResponse):
+    order: int
+
+
 class ListDetailResponse(ListResponse):
-    problems: list[ProblemResponse]
+    problems: list[ProblemInList]
 
 
 class ListProblemAdd(BaseModel):
