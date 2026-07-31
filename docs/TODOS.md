@@ -12,6 +12,20 @@ All responses must follow the `{ "data": ..., "error": ... }` envelope from `doc
 - [x] Step 7: Admin — GET problems/lists/users, toggle-admin, delete user, envelope writes
 - [x] Step 8: Analytics — add 7 missing endpoints + difficulty totals
 - [x] Step 9: Seed script for problems + global list
-- [ ] Step 10: Consolidate into pytest smoke suite, run end-to-end
+- [x] Step 10: Consolidate into pytest smoke suite, run end-to-end
 
 Deferred: Dockerfile/docker-compose, CI.
+
+## Backend complete — moving to frontend wiring
+
+All 10 steps above are done: every router follows the envelope
+contract, admin/search/portability/analytics gaps are closed, the DB
+is seeded with 80 problems in a global list, and 58 pytest tests pass
+twice back-to-back with no leaked state. See docs/API.md for the (now
+slightly extended) contract — admin listing endpoints, list-add
+inline problem creation, and the 7 extra analytics endpoints were
+added beyond the original spec to match what the frontend needed.
+
+Next: wire the frontend (currently mocked in dev via lib/mock.ts) to
+this real backend and fix the frontend-side gaps found in the earlier
+audit.
