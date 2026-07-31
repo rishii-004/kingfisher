@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useProblems, usePlatforms } from "../hooks/use-problems";
 import { useSetProblemStatus } from "../hooks/use-user-problems";
-import { useLists, useAddProblemToList, useListContainsProblem } from "../hooks/use-lists";
+import { useLists, useAddProblemToList, useListContainsProblem, useCreateListFromFilter } from "../hooks/use-lists";
 import { TOPICS } from "../lib/topics";
 import { COMPANIES, companyColor } from "../lib/companies";
 import { platformColor } from "../lib/platforms";
@@ -35,6 +36,10 @@ export default function Problems() {
   const [statusMap, setStatusMap] = useState<Record<string, string>>({});
   const [solveLogProblem, setSolveLogProblem] = useState<{ id: string; title: string } | null>(null);
   const [addToListProblem, setAddToListProblem] = useState<Problem | null>(null);
+  const [showCreateFromFilter, setShowCreateFromFilter] = useState(false);
+
+  const activeFilters = { q: query, platform, difficulty, topic, company };
+  const hasActiveFilters = Object.values(activeFilters).some((v) => v !== "");
 
   const { data, isLoading, error } = useProblems({
     q: query || undefined,
@@ -141,6 +146,16 @@ export default function Problems() {
             ...COMPANIES.map((c) => ({ value: c, label: c, labelClass: companyColor(c) })),
           ]}
         />
+
+        {hasActiveFilters && data && (
+          <button
+            type="button"
+            onClick={() => setShowCreateFromFilter(true)}
+            className="btn-secondary text-sm"
+          >
+            Create list from these filters ({data.total})
+          </button>
+        )}
       </div>
 
       {isLoading && (
@@ -245,6 +260,119 @@ export default function Problems() {
           </motion.div>
         </div>
       )}
+
+      {showCreateFromFilter && data && (
+        <CreateListFromFiltersModal
+          filters={activeFilters}
+          total={data.total}
+          onClose={() => setShowCreateFromFilter(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+interface ActiveFilters {
+  q: string;
+  platform: string;
+  difficulty: string;
+  topic: string;
+  company: string;
+}
+
+function suggestListName(filters: ActiveFilters): string {
+  const parts = [
+    filters.company,
+    filters.topic,
+    filters.difficulty && filters.difficulty.charAt(0).toUpperCase() + filters.difficulty.slice(1),
+    filters.platform,
+    filters.q,
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
+function CreateListFromFiltersModal({
+  filters,
+  total,
+  onClose,
+}: {
+  filters: ActiveFilters;
+  total: number;
+  onClose: () => void;
+}) {
+  const navigate = useNavigate();
+  const [name, setName] = useState(suggestListName(filters));
+  const [confirmText, setConfirmText] = useState("");
+  const createFromFilter = useCreateListFromFilter();
+
+  const canSubmit = name.trim().length > 0 && confirmText.trim().toLowerCase() === "create";
+
+  const handleCreate = () => {
+    if (!canSubmit) return;
+    createFromFilter.mutate(
+      {
+        name: name.trim(),
+        q: filters.q || undefined,
+        platform: filters.platform || undefined,
+        difficulty: filters.difficulty || undefined,
+        topic: filters.topic || undefined,
+        company: filters.company || undefined,
+      },
+      {
+        onSuccess: (list) => {
+          toast.success(`Created "${list.name}" with ${list.problem_count} problems`);
+          onClose();
+          navigate("/sheets");
+        },
+        onError: (err) => toast.error((err as Error).message),
+      },
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-md glass-card p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="mb-1 text-lg font-semibold text-surface-900">Create list from filters</h2>
+        <p className="mb-4 text-sm text-surface-400">
+          Creates a new sheet with all {total} matching problem{total === 1 ? "" : "s"}.
+        </p>
+
+        <label className="mb-1.5 block text-sm font-medium text-surface-300">Name</label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoFocus
+          className="input-glass w-full px-4 py-2.5 text-sm mb-4"
+        />
+
+        <label className="mb-1.5 block text-sm font-medium text-surface-300">
+          Type <span className="font-mono text-surface-900">create</span> to confirm
+        </label>
+        <input
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          placeholder="create"
+          className="input-glass w-full px-4 py-2.5 text-sm"
+        />
+
+        <div className="mt-5 flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="btn-ghost text-sm">Cancel</button>
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={!canSubmit || createFromFilter.isPending}
+            className="btn-primary text-sm"
+          >
+            {createFromFilter.isPending ? "Creating..." : "Create List"}
+          </button>
+        </div>
+      </motion.div>
     </div>
   );
 }

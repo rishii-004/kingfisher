@@ -3,6 +3,7 @@ export interface User {
   email: string;
   username: string;
   is_admin: boolean;
+  max_lists: number;
   created_at: string;
   updated_at: string;
 }

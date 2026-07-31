@@ -109,6 +109,28 @@ export function useCreateList() {
   });
 }
 
+interface CreateListFromFilterInput {
+  name: string;
+  description?: string;
+  q?: string;
+  platform?: string;
+  difficulty?: string;
+  topic?: string;
+  company?: string;
+}
+
+export function useCreateListFromFilter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateListFromFilterInput) => {
+      const { data } = await api.post<ApiResponse<ProblemList>>("/lists/from-filter", input);
+      if (data.error) throw new Error(data.error.message);
+      return data.data!;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lists"] }),
+  });
+}
+
 export function useUpdateList(id: string) {
   const qc = useQueryClient();
   return useMutation({
