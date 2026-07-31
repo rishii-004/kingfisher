@@ -10,26 +10,31 @@ Status of each item is tracked with checkboxes below and updated as
 work lands. See `AGENTS.md` → Current Status for the broader project
 state.
 
+**Status: all planned items done and verified** (built/ran every
+Docker image, ran the full 4-container prod stack end-to-end,
+registered a real user through it, measured the bundle-size fix).
+What's still explicitly out of scope is listed at the bottom.
+
 ---
 
 ## 1. Security hardening (backend)
 
-- [ ] `SECRET_KEY` currently defaults to `"change-me-in-production"` —
-      the app must refuse to start with that value unless an explicit
-      `ENVIRONMENT=development` flag is set. Forces a real secret in
-      prod instead of silently running insecurely.
-- [ ] `CORS_ORIGINS` is hardcoded to `http://localhost:5173` — make it
-      a comma-separated env var so the deployed frontend origin can be
-      added without a code change.
-- [ ] Add an `ENVIRONMENT` setting (`development` / `production`) used
-      for the checks above and to gate FastAPI's `/docs` and `/redoc`
-      (leave them on — this is an internal tool with a handful of
-      trusted users, not a public API, so hiding docs isn't worth the
-      friction — but make it a one-line toggle in `config.py` in case
-      that changes).
-- [ ] Confirm `.env` stays gitignored (already true) and ship a
-      `.env.production.example` template with placeholders, not real
-      values.
+- [x] `SECRET_KEY` refuses to start when `ENVIRONMENT=production` and
+      it's still `"change-me-in-production"` (`app/config.py`,
+      `model_validator`). Verified: `docker run` with the default
+      secret exits immediately with a clear error, before the app
+      ever binds a port.
+- [x] `CORS_ORIGINS` is now a plain comma-separated env var (was a
+      JSON-array string) so the deployed frontend origin can be added
+      without fighting JSON quoting in `.env`.
+- [x] Added `ENVIRONMENT` (`development` / `production`), used for the
+      check above. Decided *not* to gate `/docs`/`/redoc` behind it —
+      this is an internal tool for a handful of trusted users, not a
+      public API, so the extra toggle wasn't worth the friction; left
+      as a one-line note here in case that changes later.
+- [x] `.env` confirmed gitignored in both worktrees; added a root
+      `.gitignore` for `kingfisher/` (didn't exist before) plus
+      `.env.production.example` for the docker-compose deployment path.
 
 **Explicitly not doing:** rate limiting (`RATE_LIMITED` stays
 documented-but-unimplemented in `docs/API.md` — fine at this scale),
@@ -40,41 +45,46 @@ server is adequate for a handful of users).
 
 ## 2. Containerization
 
-- [ ] `kingfisher-backend/backend/Dockerfile` — multi-stage: install
-      deps, copy app, run as non-root user, entrypoint runs
-      `alembic upgrade head` then starts `uvicorn` with a couple of
-      workers (no `--reload`).
-- [ ] `kingfisher-frontend/frontend/Dockerfile` — multi-stage: `npm
-      run build`, serve the static `dist/` via Caddy (simpler config
-      and free automatic HTTPS vs. nginx+certbot — right tool for a
-      small deployment with no dedicated ops person).
-- [ ] Root `docker-compose.prod.yml` (in `kingfisher/`, since it spans
-      both worktrees) wiring together `db` (already defined in the
-      backend worktree), `backend`, `frontend`, with a `Caddyfile`
-      reverse-proxying `/api/*` to the backend and everything else to
-      the frontend, on a single exposed port (80/443).
-- [ ] Both containers run with `restart: unless-stopped` — that's the
-      process-supervision story at this scale; no need for a separate
-      process manager like gunicorn on top of uvicorn.
+- [x] `kingfisher-backend/backend/Dockerfile` — multi-stage, non-root
+      user, entrypoint runs `alembic upgrade head` then starts
+      `uvicorn` with 2 workers (no `--reload`). Also pinned
+      `requirements.txt` to exact tested versions (was unpinned).
+- [x] `kingfisher-frontend/frontend/Dockerfile` — multi-stage: `npm
+      run build`, serve `dist/` via Caddy with a `try_files` fallback
+      to `index.html` for client-side routes.
+- [x] Root `docker-compose.prod.yml` wiring together `db`, `backend`,
+      `frontend`, and an `edge` Caddy reverse-proxying `/api/*` to the
+      backend and everything else to the frontend, on ports 80/443.
+      `POSTGRES_PASSWORD`/`SECRET_KEY` are required env vars (compose
+      refuses to start without them, same principle as the backend's
+      own `SECRET_KEY` guard).
+- [x] All services run with `restart: unless-stopped`.
+
+Verified end-to-end: built all images, ran the full 4-container stack,
+registered a real user through `https://localhost` (Caddy's local
+self-signed cert — a real `DOMAIN` gets a real Let's Encrypt cert with
+no config change), confirmed the SPA's client-side routing survives a
+direct hit through the proxy, then tore it down cleanly.
 
 ---
 
 ## 3. Operational basics
 
-- [ ] First-admin bootstrap: on backend startup, if
-      `INITIAL_ADMIN_EMAIL` is set and that user exists, ensure
-      `is_admin = true`. Closes the "promote your first admin by hand
-      in psql" gap without building a full invite/role system.
-- [ ] `docs/DATABASE.md` gets a backup section: a `scripts/backup.sh`
-      wrapping `pg_dump` to a timestamped file, run manually or via a
-      simple cron entry — no managed backup service needed for this
-      scale, but "no backup story at all" isn't acceptable for real
-      user data.
-- [ ] CI: one GitHub Actions workflow per branch (`backend`,
-      `frontend`) — `backend` runs `pytest` against a Postgres service
-      container, `frontend` runs `tsc -b && vite build`. Catches
-      regressions before merge; nothing fancier (no deploy automation)
-      needed yet since deploys are manual at this scale.
+- [x] First-admin bootstrap (`app/bootstrap.py`, run from a FastAPI
+      `lifespan` hook): if `INITIAL_ADMIN_EMAIL` is set and that user
+      exists, ensure `is_admin = true`. No-op if unset; logs (doesn't
+      crash) if the email doesn't match a registered user yet.
+- [x] `scripts/backup.sh` runs `pg_dump` *inside* the running Postgres
+      container (auto-detects dev's `backend-db-1` or prod's
+      `kingfisher-db-1`) rather than requiring a host `pg_dump`
+      install — verified against the live dev container. Documented
+      in `docs/DATABASE.md` along with the restore command. No
+      automated schedule; run manually or add your own cron entry.
+- [x] CI: `.github/workflows/backend-ci.yml` (Postgres service
+      container, pytest, Docker build) and `frontend-ci.yml` (oxlint,
+      `tsc -b && vite build`, Docker build), one per branch — matches
+      the README's originally-stated GitHub Actions plan, which had
+      never actually been implemented.
 
 ---
 
@@ -100,16 +110,26 @@ gzipped on a modern connection loads in well under a second, and
 there's no SEO/first-paint-on-3G requirement for an internal tool.
 But it's a cheap fix with no real downside, so:
 
-- [ ] Remove the unused `@nivo/heatmap`/`@nivo/radar` dependencies.
-- [ ] Route-level code splitting via `React.lazy`/`Suspense` in
-      `App.tsx` — each page becomes its own chunk, so logging in only
-      loads `Login`, not `Analytics` + `Admin` + everything else.
+- [x] Removed the unused `@nivo/heatmap`/`@nivo/radar` dependencies.
+- [x] Route-level code splitting via `React.lazy`/`Suspense` in
+      `App.tsx`.
+
+**Result** (measured with a clean `npm run build`): the single
+~670KB/208KB-gzip chunk is now split per-route — `Login` 2.2KB,
+`Admin` 11KB, `Lists` 16KB, `Analytics` 24KB (gzipped-ish gzip sizes
+Vite reports), each loaded only when that page is actually visited.
+The remaining shared/vendor chunks (~276KB, ~186KB, ~124KB
+uncompressed) are React/router/query/axios core, loaded once
+regardless of route — legitimate shared framework code, not something
+route-splitting can shrink further.
 
 **If this still isn't enough later:** `vite-plugin-visualizer` to see
-exactly what's in the remaining vendor chunk, then manual chunking
-(`build.rollupOptions.output.manualChunks`) for anything still large.
-Not doing this preemptively — measure after the two steps above
-before reaching for it.
+exactly what's in those shared chunks, then manual chunking
+(`build.rollupOptions.output.manualChunks`) to split vendor libraries
+apart for better browser caching across deploys. Not done now — this
+was the "measure after the cheap fix" checkpoint the original plan
+called for, and at a few hundred KB gzipped for an internal tool with
+a handful of users, it's not worth the added build complexity yet.
 
 ---
 
