@@ -1,6 +1,6 @@
-import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useLists, useListProgress, useList, useCreateList, useDeleteList, useForkList, useResetListProgress, useAddProblemToList, useListContainsProblem, type ListProgress } from "../hooks/use-lists";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
+import { useLists, useListProgress, useList, useCreateList, useDeleteList, useForkList, useResetListProgress, useAddProblemToList, useListContainsProblem, useReorderListProblems, type ListProgress } from "../hooks/use-lists";
 import { useUserProblems, useSetProblemStatus } from "../hooks/use-user-problems";
 import { useAuth } from "../hooks/use-auth";
 import { TOPICS } from "../lib/topics";
@@ -27,8 +27,62 @@ const cardItem = {
 };
 
 type Tab = "global" | "custom";
+type ListProblemItem = ProblemListDetail["problems"][number];
 
 const DIFFICULTIES = ["easy", "medium", "hard"] as const;
+
+function DraggableProblemRow({
+  problem,
+  draggable,
+  onDragEnd,
+  solved,
+  onSolve,
+  onStatusChange,
+  onAddToList,
+  disabled,
+  status,
+}: {
+  problem: ListProblemItem;
+  draggable: boolean;
+  onDragEnd: () => void;
+  solved: boolean;
+  onSolve: (problemId: string, toSolved: boolean) => void;
+  onStatusChange: (problemId: string, status: string) => void;
+  onAddToList: (problem: Problem) => void;
+  disabled?: boolean;
+  status?: string;
+}) {
+  const dragControls = useDragControls();
+  return (
+    <Reorder.Item value={problem} as="div" dragListener={false} dragControls={dragControls} onDragEnd={onDragEnd}>
+      <ProblemRow
+        problem={problem}
+        solved={solved}
+        onSolve={onSolve}
+        onStatusChange={onStatusChange}
+        onAddToList={onAddToList}
+        disabled={disabled}
+        status={status}
+        dragHandle={
+          draggable ? (
+            <button
+              type="button"
+              onPointerDown={(e) => dragControls.start(e)}
+              className="shrink-0 cursor-grab touch-none text-surface-500 transition-colors hover:text-surface-900 active:cursor-grabbing"
+              aria-label="Drag to reorder"
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                <circle cx="5" cy="3" r="1.3" /><circle cx="11" cy="3" r="1.3" />
+                <circle cx="5" cy="8" r="1.3" /><circle cx="11" cy="8" r="1.3" />
+                <circle cx="5" cy="13" r="1.3" /><circle cx="11" cy="13" r="1.3" />
+              </svg>
+            </button>
+          ) : undefined
+        }
+      />
+    </Reorder.Item>
+  );
+}
 
 function slugToTitle(slug: string): string {
   return slug
@@ -179,6 +233,17 @@ function ListDetailView({ listId, onBack, onResetProgress }: { listId: string; o
   const [addToListProblem, setAddToListProblem] = useState<Problem | null>(null);
   const { data: membership } = useListContainsProblem(addToListProblem?.id ?? null);
   const [collapsedTopics, setCollapsedTopics] = useState<Set<string>>(new Set());
+  const reorderProblems = useReorderListProblems();
+  const [localProblems, setLocalProblems] = useState<ListProblemItem[]>([]);
+  const localProblemsRef = useRef(localProblems);
+
+  useEffect(() => {
+    if (listData) setLocalProblems(listData.problems);
+  }, [listData]);
+
+  useEffect(() => {
+    localProblemsRef.current = localProblems;
+  }, [localProblems]);
 
   const toggleTopic = (topic: string) => {
     setCollapsedTopics((prev) => {
@@ -187,6 +252,31 @@ function ListDetailView({ listId, onBack, onResetProgress }: { listId: string; o
       else next.add(topic);
       return next;
     });
+  };
+
+  const topicOf = (p: ListProblemItem) => p.topic_tags[0] || "Other";
+
+  const handleTopicReorder = (topic: string, newTopicOrder: ListProblemItem[]) => {
+    setLocalProblems((prev) => {
+      const byTopic: Record<string, ListProblemItem[]> = {};
+      for (const p of prev) {
+        const t = topicOf(p);
+        (byTopic[t] ??= []).push(p);
+      }
+      const next: ListProblemItem[] = [];
+      for (const t of Object.keys(byTopic)) {
+        next.push(...(t === topic ? newTopicOrder : byTopic[t]));
+      }
+      return next;
+    });
+  };
+
+  const commitReorder = () => {
+    if (!listData?.is_custom) return;
+    reorderProblems.mutate(
+      { listId, problemIds: localProblemsRef.current.map((p) => p.id) },
+      { onError: (err) => toast.error((err as Error).message) },
+    );
   };
 
   const handleSolve = (problemId: string, toSolved: boolean) => {
@@ -243,12 +333,17 @@ function ListDetailView({ listId, onBack, onResetProgress }: { listId: string; o
   const solved = listData.problems.filter((p) => statusMap[p.id] === "solved").length;
   const progressPct = total > 0 ? Math.round((solved / total) * 100) : 0;
 
-  const grouped: Record<string, ProblemListDetail["problems"]> = {};
-  for (const p of listData.problems) {
-    const topic = p.topic_tags[0] || "Other";
+  const grouped: Record<string, ListProblemItem[]> = {};
+  for (const p of localProblems) {
+    const topic = topicOf(p);
     if (!grouped[topic]) grouped[topic] = [];
     grouped[topic].push(p);
   }
+  const topicKeys = Object.keys(grouped);
+  const allCollapsed = topicKeys.length > 0 && topicKeys.every((t) => collapsedTopics.has(t));
+  const toggleAllTopics = () => {
+    setCollapsedTopics(allCollapsed ? new Set() : new Set(topicKeys));
+  };
 
   return (
     <div className="space-y-6">
@@ -288,8 +383,13 @@ function ListDetailView({ listId, onBack, onResetProgress }: { listId: string; o
         </div>
       </div>
 
-      {/* Add problem button */}
-      <div className="flex justify-end">
+      {/* Add problem / collapse-all buttons */}
+      <div className="flex justify-end gap-2">
+        {topicKeys.length > 0 && (
+          <GhostButton onClick={toggleAllTopics} className="!px-3 !py-1.5 !text-xs">
+            {allCollapsed ? "Expand all" : "Collapse all"}
+          </GhostButton>
+        )}
         <GhostButton onClick={() => setShowAdd(true)} className="!px-3 !py-1.5 !text-xs">
           + Add problem
         </GhostButton>
@@ -321,11 +421,19 @@ function ListDetailView({ listId, onBack, onResetProgress }: { listId: string; o
               <span className="text-xs text-surface-500">{topicSolved}/{problems.length}</span>
             </button>
             {!collapsed && (
-              <div className="space-y-1">
+              <Reorder.Group
+                as="div"
+                axis="y"
+                values={problems}
+                onReorder={(newOrder) => handleTopicReorder(topic, newOrder)}
+                className="space-y-1"
+              >
                 {problems.map((problem) => (
-                  <ProblemRow
+                  <DraggableProblemRow
                     key={problem.id}
                     problem={problem}
+                    draggable={listData.is_custom}
+                    onDragEnd={commitReorder}
                     solved={statusMap[problem.id] === "solved"}
                     onSolve={handleSolve}
                     onStatusChange={handleStatusChange}
@@ -334,7 +442,7 @@ function ListDetailView({ listId, onBack, onResetProgress }: { listId: string; o
                     status={statusMap[problem.id] ?? "todo"}
                   />
                 ))}
-              </div>
+              </Reorder.Group>
             )}
           </div>
         );

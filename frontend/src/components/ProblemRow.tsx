@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import Checkbox from "./Checkbox";
 import DifficultyBadge from "./DifficultyBadge";
@@ -28,9 +28,10 @@ interface Props {
   onAddToList?: (problem: Problem) => void;
   disabled?: boolean;
   status?: string;
+  dragHandle?: ReactNode;
 }
 
-export default function ProblemRow({ problem, solved, onSolve, onStatusChange, onAddToList, disabled, status }: Props) {
+export default function ProblemRow({ problem, solved, onSolve, onStatusChange, onAddToList, disabled, status, dragHandle }: Props) {
   const [statusOpen, setStatusOpen] = useState(false);
   const currentStatus = status ?? (solved ? "solved" : "todo");
 
@@ -39,6 +40,7 @@ export default function ProblemRow({ problem, solved, onSolve, onStatusChange, o
       variants={rowItem}
       className="glass-hover px-4 py-3 flex items-center gap-3"
     >
+      {dragHandle}
       <Checkbox
         checked={solved}
         onChange={() => onSolve(problem.id, !solved)}

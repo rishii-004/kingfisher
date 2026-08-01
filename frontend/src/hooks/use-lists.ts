@@ -227,3 +227,16 @@ export function useRemoveProblemFromList() {
     onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["list", vars.listId] }),
   });
 }
+
+export function useReorderListProblems() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { listId: string; problemIds: string[] }) => {
+      const { data } = await api.put<ApiResponse<null>>(`/lists/${input.listId}/problems/reorder`, {
+        problem_ids: input.problemIds,
+      });
+      if (data?.error) throw new Error(data.error.message);
+    },
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["list", vars.listId] }),
+  });
+}
