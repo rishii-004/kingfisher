@@ -9,6 +9,17 @@ def test_platforms_is_public(client):
     assert len(body["data"]["platforms"]) >= 1
 
 
+def test_companies_is_public(client, problem):
+    res = client.get("/api/v1/problems/companies")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["error"] is None
+    assert "google" in [c.lower() for c in body["data"]["companies"]]
+    # sorted, deduped
+    companies = body["data"]["companies"]
+    assert companies == sorted(set(companies))
+
+
 def test_list_problems_paginated(client, test_user):
     res = client.get("/api/v1/problems?page=1&per_page=5", headers=auth(test_user))
     assert res.status_code == 200

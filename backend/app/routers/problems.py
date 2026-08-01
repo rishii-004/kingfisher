@@ -9,6 +9,7 @@ from app.models.list_problem import ListProblem
 from app.models.problem import Problem
 from app.schemas.envelope import Envelope, Paginated
 from app.schemas.problem import (
+    CompaniesResponse,
     PlatformInfo,
     PlatformsResponse,
     ProblemResponse,
@@ -30,6 +31,15 @@ PLATFORMS = [
 @router.get("/platforms", response_model=Envelope[PlatformsResponse])
 def get_platforms():
     return Envelope(data=PlatformsResponse(platforms=PLATFORMS))
+
+
+@router.get("/companies", response_model=Envelope[CompaniesResponse])
+def get_companies(db: Session = Depends(get_db)):
+    rows = db.query(Problem.company_tags).filter(Problem.company_tags.isnot(None)).all()
+    companies: set[str] = set()
+    for (tags,) in rows:
+        companies.update(tags or [])
+    return Envelope(data=CompaniesResponse(companies=sorted(companies)))
 
 
 @router.get(

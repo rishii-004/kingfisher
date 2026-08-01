@@ -299,6 +299,19 @@ Response 200:
 }
 ```
 
+#### GET /problems/companies
+Get every distinct company tag currently present in the problem catalog
+(sorted, deduped) — used to populate the company filter dropdown
+instead of a hardcoded list. [PUBLIC]
+
+```
+Response 200:
+{
+  "data": { "companies": ["Adobe", "Amazon", "Apple", ...] },
+  "error": null
+}
+```
+
 ---
 
 ### Lists
