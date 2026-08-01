@@ -1,14 +1,20 @@
 import { useEffect, useState } from "react";
+import api from "../lib/api";
+import { authStore } from "../stores/auth-store";
 
 const STORAGE_KEY = "kf_time_spent";
 const TICK_MS = 30_000;
+// A flush should cover roughly one tick; capped well above that so a
+// suspended laptop or long-backgrounded tab waking up doesn't report the
+// entire wall-clock gap as active time.
+const MAX_FLUSH_SECONDS = 60;
 
 interface TimeSpentRecord {
   date: string;
   seconds: number;
 }
 
-function todayKey(d = new Date()): string {
+export function todayKey(d = new Date()): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -28,13 +34,22 @@ function readRecord(): TimeSpentRecord {
 
 function accumulate(elapsedMs: number) {
   if (elapsedMs <= 0) return;
+  const delta = Math.min(Math.round(elapsedMs / 1000), MAX_FLUSH_SECONDS);
   const now = todayKey();
   const record = readRecord();
-  const seconds = (record.date === now ? record.seconds : 0) + Math.round(elapsedMs / 1000);
+  const seconds = (record.date === now ? record.seconds : 0) + delta;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: now, seconds }));
   } catch {
     /* ignore quota / privacy errors */
+  }
+
+  // Best-effort sync so the server-side weekly chart agrees with this
+  // widget instead of only ever seeing self-reported solve-log buckets.
+  // Fire-and-forget: losing an occasional flush just under-counts by a
+  // few seconds, not worth retry/queueing complexity for.
+  if (authStore.isAuthenticated()) {
+    api.post("/user/time-spent", { date: now, seconds: delta }).catch(() => {});
   }
 }
 
