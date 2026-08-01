@@ -31,11 +31,24 @@ export default function Select({ value, onChange, placeholder, options, classNam
       onOpenChange={(open) => {
         if (!open) {
           setSearch("");
-        } else {
-          // Base UI moves focus into the listbox on open; grab it back for
-          // the search box a tick later so typing works immediately.
-          requestAnimationFrame(() => searchInputRef.current?.focus());
+          return;
         }
+        if (options.length <= 6) return;
+        // Base UI moves focus into the listbox itself once the popup
+        // mounts, which can happen before or after this fires and either
+        // way wins a single-attempt race against it. Retry every frame
+        // (bounded) until the search input actually ends up focused.
+        let attempts = 0;
+        const tryFocus = () => {
+          const input = searchInputRef.current;
+          if (input && document.activeElement !== input) {
+            input.focus();
+          }
+          if ((!input || document.activeElement !== input) && attempts++ < 15) {
+            requestAnimationFrame(tryFocus);
+          }
+        };
+        requestAnimationFrame(tryFocus);
       }}
     >
       <BaseSelect.Trigger
