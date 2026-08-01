@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Select as BaseSelect } from "@base-ui/react";
 
 interface Option {
@@ -18,6 +18,7 @@ interface Props {
 
 export default function Select({ value, onChange, placeholder, options, className, bordered = true }: Props) {
   const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const selected = options.find((o) => o.value === value);
   const filtered = search.trim()
     ? options.filter((o) => o.label.toLowerCase().includes(search.trim().toLowerCase()))
@@ -27,7 +28,15 @@ export default function Select({ value, onChange, placeholder, options, classNam
     <BaseSelect.Root
       value={value}
       onValueChange={(v) => onChange(v ?? "")}
-      onOpenChange={(open) => { if (!open) setSearch(""); }}
+      onOpenChange={(open) => {
+        if (!open) {
+          setSearch("");
+        } else {
+          // Base UI moves focus into the listbox on open; grab it back for
+          // the search box a tick later so typing works immediately.
+          requestAnimationFrame(() => searchInputRef.current?.focus());
+        }
+      }}
     >
       <BaseSelect.Trigger
         className={`group flex items-center gap-2 px-3 py-2 text-xs cursor-pointer outline-none ${
@@ -44,11 +53,16 @@ export default function Select({ value, onChange, placeholder, options, classNam
         </BaseSelect.Icon>
       </BaseSelect.Trigger>
       <BaseSelect.Portal>
-        <BaseSelect.Positioner className="z-50" sideOffset={4}>
+        {/* alignItemWithTrigger's "line the selected item up with the
+            trigger" math breaks once a search box shifts the popup's
+            internal layout, so fall back to normal below-trigger
+            positioning for any list long enough to have one. */}
+        <BaseSelect.Positioner className="z-50" sideOffset={4} alignItemWithTrigger={options.length <= 6}>
           <BaseSelect.Popup className="origin-top-right min-w-[160px] max-h-[min(24rem,var(--available-height))] overflow-y-auto bg-surface-100 border border-surface-300 shadow-lg data-[side=none]:animate-none data-[side=bottom]:animate-in data-[side=bottom]:fade-in data-[side=bottom]:slide-in-from-top-1">
             {options.length > 6 && (
               <div className="sticky top-0 z-10 bg-surface-100 border-b border-surface-300/50 p-1.5">
                 <input
+                  ref={searchInputRef}
                   autoFocus
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
