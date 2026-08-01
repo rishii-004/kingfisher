@@ -151,7 +151,7 @@ export default function Problems() {
           <button
             type="button"
             onClick={() => setShowCreateFromFilter(true)}
-            className="btn-secondary text-sm"
+            className="btn-primary ml-auto text-sm"
           >
             Create list from these filters ({data.total})
           </button>
