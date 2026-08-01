@@ -7,7 +7,6 @@ from tests.conftest import auth
 SIMPLE_LIST_ENDPOINTS = [
     "radar",
     "time-trends",
-    "time-spent-week",
     "weekly-pattern",
     "topic-mastery",
     "company",

@@ -1,8 +1,5 @@
 import uuid
-from datetime import date
 
-from app.database import SessionLocal
-from app.models.daily_time_spent import DailyTimeSpent
 from tests.conftest import auth
 
 
@@ -167,25 +164,3 @@ def test_update_max_lists_user_not_found(client, admin_user):
         headers=auth(admin_user),
     )
     assert res.status_code == 404
-
-
-def test_delete_user_with_time_spent_data(client, admin_user):
-    suffix = uuid.uuid4().hex[:8]
-    body = {
-        "email": f"deleteme_{suffix}@test.com",
-        "username": f"deleteme_{suffix}",
-        "password": "testpass123",
-    }
-    res = client.post("/api/v1/auth/register", json=body)
-    assert res.status_code == 201
-    user_id = res.json()["data"]["user"]["id"]
-
-    # daily_time_spent has no ON DELETE CASCADE on user_id — deleting a
-    # user with rows here must not hit a foreign key violation.
-    db = SessionLocal()
-    db.add(DailyTimeSpent(user_id=user_id, date=date.today(), seconds=60))
-    db.commit()
-    db.close()
-
-    res = client.delete(f"/api/v1/admin/users/{user_id}", headers=auth(admin_user))
-    assert res.status_code == 204

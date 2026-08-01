@@ -765,33 +765,6 @@ Errors:
 
 ---
 
-### Time Tracking
-
-#### POST /user/time-spent
-Accumulate active-session time for a given day. The frontend's session
-tracker calls this every ~30s (and on tab-hide/unload) with however
-much time elapsed since its last flush; the server adds `seconds` to
-whatever total already exists for `(user, date)` rather than
-overwriting it. `date` should be the client's own local date, so it
-lines up with what the user perceives as "today" — this is also what
-`GET /analytics/time-spent-week` reads from (pass the same local date
-as its `today` param). [PROTECTED]
-
-```
-Request:
-{
-  "date": "2026-07-31",
-  "seconds": 30
-}
-
-Response 204: No Content
-
-Errors:
-  - 422: seconds must be between 0 and 300
-```
-
----
-
 ### Analytics
 
 #### GET /analytics/heatmap?year=2026
@@ -866,28 +839,6 @@ Response 200:
     { "bucket": "15-30m", "count": 25 },
     { "bucket": "30-60m", "count": 30 },
     { "bucket": "1h+", "count": 8 }
-  ],
-  "error": null
-}
-```
-
-#### GET /analytics/time-spent-week
-Get real tracked minutes spent per day for the last 7 days (today
-inclusive), oldest first — backed by `daily_time_spent`, the table
-`POST /user/time-spent` accumulates into (see below). `today` is
-optional and should be the client's own local date (`YYYY-MM-DD`); if
-omitted the window is anchored to the server's UTC date instead, which
-can be off by a day around midnight for non-UTC users. [PROTECTED]
-
-```
-GET /analytics/time-spent-week?today=2026-07-31
-
-Response 200:
-{
-  "data": [
-    { "date": "2026-07-25", "day": "Sat", "minutes": 0 },
-    { "date": "2026-07-26", "day": "Sun", "minutes": 45 },
-    ...
   ],
   "error": null
 }

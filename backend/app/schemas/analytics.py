@@ -25,12 +25,6 @@ class TimeTrendEntry(BaseModel):
     count: int
 
 
-class TimeSpentDay(BaseModel):
-    date: str
-    day: str
-    minutes: int
-
-
 class WeeklyPatternEntry(BaseModel):
     day: str
     count: int

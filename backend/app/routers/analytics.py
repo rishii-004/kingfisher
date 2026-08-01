@@ -1,5 +1,3 @@
-from datetime import date
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -13,7 +11,6 @@ from app.schemas.analytics import (
     MistakeBreakdownEntry,
     RadarEntry,
     ReviewPipeline,
-    TimeSpentDay,
     TimeTrendEntry,
     TopicMasteryEntry,
     WeeklyPatternEntry,
@@ -28,7 +25,6 @@ from app.services.analytics import (
     get_radar_data,
     get_review_pipeline,
     get_time_spent_trends,
-    get_time_spent_week,
     get_topic_mastery,
     get_weekly_pattern,
 )
@@ -63,15 +59,6 @@ def time_trends(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     return Envelope(data=get_time_spent_trends(db, str(current_user.id)))
-
-
-@router.get("/time-spent-week", response_model=Envelope[list[TimeSpentDay]])
-def time_spent_week(
-    today: date | None = Query(None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    return Envelope(data=get_time_spent_week(db, str(current_user.id), today))
 
 
 @router.get("/weekly-pattern", response_model=Envelope[list[WeeklyPatternEntry]])

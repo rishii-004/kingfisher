@@ -1,11 +1,9 @@
 from collections import defaultdict
-from datetime import date as date_type
 from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.daily_time_spent import DailyTimeSpent
 from app.models.problem import Problem
 from app.models.review import Review
 from app.models.solve_log import SolveLog
@@ -125,31 +123,6 @@ def get_time_spent_trends(db: Session, user_id: str):
         if row.time_spent in buckets:
             buckets[row.time_spent] = row.count
     return [{"bucket": k, "count": v} for k, v in buckets.items()]
-
-
-def get_time_spent_week(db: Session, user_id: str, today: date_type | None = None):
-    # `today` is the client's own local date (see app/routers/time_spent.py) —
-    # this data is keyed by local day, so the 7-day window should be too,
-    # rather than drifting by a day around UTC midnight for non-UTC users.
-    if today is None:
-        today = datetime.now(timezone.utc).date()
-    start_date = today - timedelta(days=6)
-
-    rows = (
-        db.query(DailyTimeSpent.date, DailyTimeSpent.seconds)
-        .filter(DailyTimeSpent.user_id == user_id, DailyTimeSpent.date >= start_date)
-        .all()
-    )
-    minutes_by_date = {str(row.date): round(row.seconds / 60) for row in rows}
-
-    result = []
-    for i in range(7):
-        d = start_date + timedelta(days=i)
-        key = d.isoformat()
-        result.append(
-            {"date": key, "day": d.strftime("%a"), "minutes": minutes_by_date.get(key, 0)}
-        )
-    return result
 
 
 def get_weekly_pattern(db: Session, user_id: str):
