@@ -178,6 +178,16 @@ function ListDetailView({ listId, onBack, onResetProgress }: { listId: string; o
   const [solveLogProblem, setSolveLogProblem] = useState<{ id: string; title: string } | null>(null);
   const [addToListProblem, setAddToListProblem] = useState<Problem | null>(null);
   const { data: membership } = useListContainsProblem(addToListProblem?.id ?? null);
+  const [collapsedTopics, setCollapsedTopics] = useState<Set<string>>(new Set());
+
+  const toggleTopic = (topic: string) => {
+    setCollapsedTopics((prev) => {
+      const next = new Set(prev);
+      if (next.has(topic)) next.delete(topic);
+      else next.add(topic);
+      return next;
+    });
+  };
 
   const handleSolve = (problemId: string, toSolved: boolean) => {
     setStatus.mutate(
@@ -291,26 +301,41 @@ function ListDetailView({ listId, onBack, onResetProgress }: { listId: string; o
 
       {Object.entries(grouped).map(([topic, problems]) => {
         const topicSolved = problems.filter((p) => statusMap[p.id] === "solved").length;
+        const collapsed = collapsedTopics.has(topic);
         return (
           <div key={topic}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-widest">{topic}</h3>
+            <button
+              type="button"
+              onClick={() => toggleTopic(topic)}
+              className="flex w-full items-center justify-between gap-2 mb-2 text-left cursor-pointer group"
+            >
+              <span className="flex items-center gap-1.5">
+                <svg
+                  width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                  className={`text-surface-500 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+                <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-widest group-hover:text-surface-900 transition-colors">{topic}</h3>
+              </span>
               <span className="text-xs text-surface-500">{topicSolved}/{problems.length}</span>
-            </div>
-            <div className="space-y-1">
-              {problems.map((problem) => (
-                <ProblemRow
-                  key={problem.id}
-                  problem={problem}
-                  solved={statusMap[problem.id] === "solved"}
-                  onSolve={handleSolve}
-                  onStatusChange={handleStatusChange}
-                  onAddToList={setAddToListProblem}
-                  disabled={setStatus.isPending}
-                  status={statusMap[problem.id] ?? "todo"}
-                />
-              ))}
-            </div>
+            </button>
+            {!collapsed && (
+              <div className="space-y-1">
+                {problems.map((problem) => (
+                  <ProblemRow
+                    key={problem.id}
+                    problem={problem}
+                    solved={statusMap[problem.id] === "solved"}
+                    onSolve={handleSolve}
+                    onStatusChange={handleStatusChange}
+                    onAddToList={setAddToListProblem}
+                    disabled={setStatus.isPending}
+                    status={statusMap[problem.id] ?? "todo"}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         );
       })}

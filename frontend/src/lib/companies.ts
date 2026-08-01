@@ -1,9 +1,3 @@
-export const COMPANIES = [
-  "Google", "Amazon", "Meta", "Microsoft", "Apple",
-  "Netflix", "Adobe", "Uber", "Bloomberg", "TikTok",
-  "Stripe", "Goldman Sachs", "Atlassian", "Oracle", "Twitter",
-];
-
 const COMPANY_COLORS: Record<string, string> = {
   "Google": "text-sky-400",
   "Amazon": "text-orange-400",

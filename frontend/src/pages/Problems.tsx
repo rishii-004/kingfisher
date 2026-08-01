@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useProblems, usePlatforms } from "../hooks/use-problems";
+import { useProblems, usePlatforms, useCompanies } from "../hooks/use-problems";
 import { useSetProblemStatus } from "../hooks/use-user-problems";
 import { useLists, useAddProblemToList, useListContainsProblem, useCreateListFromFilter } from "../hooks/use-lists";
 import { TOPICS } from "../lib/topics";
-import { COMPANIES, companyColor } from "../lib/companies";
+import { companyColor } from "../lib/companies";
 import { platformColor } from "../lib/platforms";
 import { toast } from "../lib/toast";
 import SolveLogPopup from "../features/solve-log/SolveLogPopup";
@@ -51,6 +51,7 @@ export default function Problems() {
     per_page: 20,
   });
   const { data: platforms } = usePlatforms();
+  const { data: companies } = useCompanies();
   const { data: customLists } = useLists("custom");
   const { data: membership } = useListContainsProblem(addToListProblem?.id ?? null);
   const setStatus = useSetProblemStatus();
@@ -143,7 +144,7 @@ export default function Problems() {
           bordered={false}
           options={[
             { value: "", label: "All companies" },
-            ...COMPANIES.map((c) => ({ value: c, label: c, labelClass: companyColor(c) })),
+            ...(companies ?? []).map((c) => ({ value: c, label: c, labelClass: companyColor(c) })),
           ]}
         />
 

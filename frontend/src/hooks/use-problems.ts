@@ -51,3 +51,15 @@ export function usePlatforms() {
     staleTime: Infinity,
   });
 }
+
+export function useCompanies() {
+  return useQuery({
+    queryKey: ["companies"],
+    queryFn: async () => {
+      const { data } = await api.get<ApiResponse<{ companies: string[] }>>("/problems/companies");
+      if (data.error) throw new Error(data.error.message);
+      return data.data!.companies;
+    },
+    staleTime: 5 * 60_000,
+  });
+}

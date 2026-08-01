@@ -35,7 +35,7 @@ export default function Select({ value, onChange, placeholder, options, classNam
       </BaseSelect.Trigger>
       <BaseSelect.Portal>
         <BaseSelect.Positioner className="z-50" sideOffset={4}>
-          <BaseSelect.Popup className="origin-top-right min-w-[160px] bg-surface-100 border border-surface-300 shadow-lg py-1 data-[side=none]:animate-none data-[side=bottom]:animate-in data-[side=bottom]:fade-in data-[side=bottom]:slide-in-from-top-1">
+          <BaseSelect.Popup className="origin-top-right min-w-[160px] max-h-[min(24rem,var(--available-height))] overflow-y-auto bg-surface-100 border border-surface-300 shadow-lg py-1 data-[side=none]:animate-none data-[side=bottom]:animate-in data-[side=bottom]:fade-in data-[side=bottom]:slide-in-from-top-1">
             <BaseSelect.List>
               {options.map((opt) => (
                 <BaseSelect.Item
