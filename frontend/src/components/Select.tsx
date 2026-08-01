@@ -19,6 +19,7 @@ interface Props {
 export default function Select({ value, onChange, placeholder, options, className, bordered = true }: Props) {
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const isOpenRef = useRef(false);
   const selected = options.find((o) => o.value === value);
   const filtered = search.trim()
     ? options.filter((o) => o.label.toLowerCase().includes(search.trim().toLowerCase()))
@@ -29,6 +30,7 @@ export default function Select({ value, onChange, placeholder, options, classNam
       value={value}
       onValueChange={(v) => onChange(v ?? "")}
       onOpenChange={(open) => {
+        isOpenRef.current = open;
         if (!open) {
           setSearch("");
           return;
@@ -36,15 +38,17 @@ export default function Select({ value, onChange, placeholder, options, classNam
         if (options.length <= 6) return;
         // Base UI moves focus into the listbox itself once the popup
         // mounts, which can happen before or after this fires and either
-        // way wins a single-attempt race against it. Retry every frame
-        // (bounded) until the search input actually ends up focused.
-        let attempts = 0;
+        // way wins a single-attempt race against it. The first mount of a
+        // given popup can also take noticeably longer to settle (position
+        // measurement) than later opens, so keep retrying every frame for
+        // as long as the popup stays open rather than giving up quickly.
         const tryFocus = () => {
+          if (!isOpenRef.current) return;
           const input = searchInputRef.current;
           if (input && document.activeElement !== input) {
             input.focus();
           }
-          if ((!input || document.activeElement !== input) && attempts++ < 15) {
+          if (!input || document.activeElement !== input) {
             requestAnimationFrame(tryFocus);
           }
         };
@@ -76,7 +80,6 @@ export default function Select({ value, onChange, placeholder, options, classNam
               <div className="sticky top-0 z-10 bg-surface-100 border-b border-surface-300/50 p-1.5">
                 <input
                   ref={searchInputRef}
-                  autoFocus
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => { if (e.key !== "Escape") e.stopPropagation(); }}
