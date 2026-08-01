@@ -521,6 +521,27 @@ Errors:
   - 403: Not owner of this list
 ```
 
+#### PUT /lists/{id}/problems/reorder
+Set a new order for every problem in a custom list. `problem_ids` must
+be the full set of problem ids currently in the list (just reordered,
+not added/removed) — the frontend uses this to persist drag-and-drop
+reordering within a topic group by resending the list's full order with
+that group's slice rearranged. [PROTECTED]
+
+```
+Request:
+{
+  "problem_ids": ["<id-3>", "<id-1>", "<id-2>"]
+}
+
+Response 204: No Content
+
+Errors:
+  - 404: List not found
+  - 403: Not owner of this list
+  - 400: problem_ids must match the list's current problems exactly
+```
+
 ---
 
 ### User Problems

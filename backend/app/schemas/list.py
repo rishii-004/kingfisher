@@ -84,3 +84,9 @@ class ListProblemResponse(BaseModel):
     list_id: str
     problem_id: str
     order: int
+
+
+class ListReorderRequest(BaseModel):
+    # Full new ordering for every problem currently in the list — the set
+    # of ids must exactly match what's already there, just reordered.
+    problem_ids: list[str]

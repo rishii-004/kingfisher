@@ -15,6 +15,7 @@ from app.schemas.list import (
     ListFromFilterCreate,
     ListProblemAdd,
     ListProblemResponse,
+    ListReorderRequest,
     ListResponse,
     ListUpdate,
     ProblemInList,
@@ -387,4 +388,34 @@ def remove_problem_from_list(
             status_code=status.HTTP_404_NOT_FOUND, detail="Problem not in list"
         )
     db.delete(lp)
+    db.commit()
+
+
+@router.put("/{list_id}/problems/reorder", status_code=status.HTTP_204_NO_CONTENT)
+def reorder_list_problems(
+    list_id: str,
+    body: ListReorderRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    lst = db.query(ProblemList).filter(ProblemList.id == list_id).first()
+    if not lst:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="List not found"
+        )
+    if lst.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not owner of this list"
+        )
+
+    existing = db.query(ListProblem).filter(ListProblem.list_id == list_id).all()
+    by_problem_id = {str(lp.problem_id): lp for lp in existing}
+    if set(body.problem_ids) != set(by_problem_id.keys()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="problem_ids must match the list's current problems exactly",
+        )
+
+    for index, problem_id in enumerate(body.problem_ids):
+        by_problem_id[problem_id].order = index
     db.commit()

@@ -1,6 +1,7 @@
 import uuid
 
 from app.database import SessionLocal
+from app.models.problem import Problem
 from app.models.user_problem import UserProblem
 from tests.conftest import auth
 
@@ -164,6 +165,83 @@ def test_reset_list_with_solved_problem_and_review(client, test_user, problem, g
     db.query(UserProblem).filter(UserProblem.problem_id == problem["id"]).delete()
     db.commit()
     db.close()
+
+
+def test_reorder_list_problems(client, test_user):
+    lid = test_create_list(client, test_user)
+    db = SessionLocal()
+    problems = []
+    for i in range(3):
+        suffix = uuid.uuid4().hex[:8]
+        p = Problem(
+            title=f"Reorder Problem {i} {suffix}",
+            slug=f"reorder-problem-{i}-{suffix}",
+            platform="leetcode",
+            platform_url="https://leetcode.com/problems/test",
+            difficulty="medium",
+            topic_tags=["arrays"],
+            company_tags=[],
+        )
+        db.add(p)
+        db.flush()
+        problems.append(p)
+    db.commit()
+    pids = [str(p.id) for p in problems]
+    db.close()
+
+    for pid in pids:
+        res = client.post(
+            f"/api/v1/lists/{lid}/problems", json={"problem_id": pid}, headers=auth(test_user)
+        )
+        assert res.status_code == 201
+
+    new_order = list(reversed(pids))
+    res = client.put(
+        f"/api/v1/lists/{lid}/problems/reorder",
+        json={"problem_ids": new_order},
+        headers=auth(test_user),
+    )
+    assert res.status_code == 204
+
+    res = client.get(f"/api/v1/lists/{lid}", headers=auth(test_user))
+    got_order = [p["id"] for p in res.json()["data"]["problems"]]
+    assert got_order == new_order
+
+    client.delete(f"/api/v1/lists/{lid}", headers=auth(test_user))
+    db = SessionLocal()
+    db.query(Problem).filter(Problem.id.in_(pids)).delete(synchronize_session=False)
+    db.commit()
+    db.close()
+
+
+def test_reorder_list_problems_mismatched_set(client, test_user, problem):
+    lid = test_create_list(client, test_user)
+    client.post(
+        f"/api/v1/lists/{lid}/problems", json={"problem_id": problem["id"]}, headers=auth(test_user)
+    )
+    res = client.put(
+        f"/api/v1/lists/{lid}/problems/reorder",
+        json={"problem_ids": ["00000000-0000-0000-0000-000000000000"]},
+        headers=auth(test_user),
+    )
+    assert res.status_code == 400
+    client.delete(f"/api/v1/lists/{lid}/problems/{problem['id']}", headers=auth(test_user))
+    client.delete(f"/api/v1/lists/{lid}", headers=auth(test_user))
+
+
+def test_reorder_list_problems_requires_ownership(client, test_user, admin_user, problem):
+    lid = test_create_list(client, test_user)
+    client.post(
+        f"/api/v1/lists/{lid}/problems", json={"problem_id": problem["id"]}, headers=auth(test_user)
+    )
+    res = client.put(
+        f"/api/v1/lists/{lid}/problems/reorder",
+        json={"problem_ids": [problem["id"]]},
+        headers=auth(admin_user),
+    )
+    assert res.status_code == 403
+    client.delete(f"/api/v1/lists/{lid}/problems/{problem['id']}", headers=auth(test_user))
+    client.delete(f"/api/v1/lists/{lid}", headers=auth(test_user))
 
 
 def test_lists_require_auth(client):
