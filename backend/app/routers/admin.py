@@ -3,6 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.daily_time_spent import DailyTimeSpent
 from app.models.list import ProblemList
 from app.models.list_problem import ListProblem
 from app.models.problem import Problem
@@ -343,6 +344,9 @@ def delete_user(
         synchronize_session=False
     )
     db.query(UserProblem).filter(UserProblem.user_id == user_id).delete(
+        synchronize_session=False
+    )
+    db.query(DailyTimeSpent).filter(DailyTimeSpent.user_id == user_id).delete(
         synchronize_session=False
     )
     db.delete(user)

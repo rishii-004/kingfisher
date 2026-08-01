@@ -1,17 +1,17 @@
 from collections import defaultdict
+from datetime import date as date_type
 from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.models.daily_time_spent import DailyTimeSpent
 from app.models.problem import Problem
 from app.models.review import Review
 from app.models.solve_log import SolveLog
 from app.models.user_problem import UserProblem
 
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-
-TIME_SPENT_MINUTES = {"<15m": 10, "15-30m": 22, "30-60m": 45, "1h+": 75}
 
 MISTAKE_LABELS = {
     "edge_case_missed": "Edge case missed",
@@ -127,22 +127,20 @@ def get_time_spent_trends(db: Session, user_id: str):
     return [{"bucket": k, "count": v} for k, v in buckets.items()]
 
 
-def get_time_spent_week(db: Session, user_id: str):
-    today = datetime.now(timezone.utc).date()
+def get_time_spent_week(db: Session, user_id: str, today: date_type | None = None):
+    # `today` is the client's own local date (see app/routers/time_spent.py) —
+    # this data is keyed by local day, so the 7-day window should be too,
+    # rather than drifting by a day around UTC midnight for non-UTC users.
+    if today is None:
+        today = datetime.now(timezone.utc).date()
     start_date = today - timedelta(days=6)
-    start_dt = datetime.combine(start_date, time.min, tzinfo=timezone.utc)
 
     rows = (
-        db.query(
-            func.date(SolveLog.solved_at).label("date"),
-            SolveLog.time_spent,
-        )
-        .filter(SolveLog.user_id == user_id, SolveLog.solved_at >= start_dt)
+        db.query(DailyTimeSpent.date, DailyTimeSpent.seconds)
+        .filter(DailyTimeSpent.user_id == user_id, DailyTimeSpent.date >= start_date)
         .all()
     )
-    minutes_by_date = defaultdict(int)
-    for row in rows:
-        minutes_by_date[str(row.date)] += TIME_SPENT_MINUTES.get(row.time_spent, 0)
+    minutes_by_date = {str(row.date): round(row.seconds / 60) for row in rows}
 
     result = []
     for i in range(7):

@@ -82,7 +82,7 @@ so the `app` package resolves.
 
 ## Schema
 
-Seven tables, defined in `backend/app/models/`. No ORM-level
+Eight tables, defined in `backend/app/models/`. No ORM-level
 `relationship()` cascades are set up (only `owner = relationship(...)`
 on `ProblemList` for convenience reads) — deletes that need to respect
 foreign keys are handled explicitly in the routers/services, not by
@@ -97,12 +97,14 @@ the database or ORM automatically.
 | `user_problems` | Per-user status on a problem | `user_id` + `problem_id` (composite PK), `status` (`todo`/`solving`/`solved`/`skipped`), `solved_at` |
 | `solve_logs` | Post-solve notes for a solved problem | `id`, `user_id`, `problem_id`, `mistake_tags` (array), `notes`, `time_spent`, `solved_at` |
 | `reviews` | Scheduled spaced-repetition reviews | `id`, `user_id`, `problem_id`, `solve_log_id` → `solve_logs.id` (nullable), `interval_days`, `due_at`, `review_stage`, `last_reviewed_at` |
+| `daily_time_spent` | Real tracked active-session time per user per day (client's local date, not UTC) | `id`, `user_id`, `date`, `seconds`, unique on `(user_id, date)` |
 
 **FK order matters when deleting by hand:** `reviews.solve_log_id`
 points at `solve_logs`, so delete reviews before solve logs (this bit
 us once — see the `reset_list_progress` fix in git history). Likewise
-delete `list_problems`/`user_problems`/`solve_logs`/`reviews` before
-deleting a `problems` or `users` row they reference.
+delete `list_problems`/`user_problems`/`solve_logs`/`reviews`/
+`daily_time_spent` before deleting a `problems` or `users` row they
+reference.
 
 ---
 
@@ -198,6 +200,6 @@ venv/bin/python -m scripts.seed   # if you want the sample data back
 If you just want to clear *your own* test data without nuking the
 whole DB, `TRUNCATE` the tables in FK-safe order instead:
 ```sql
-TRUNCATE reviews, solve_logs, user_problems, list_problems, lists, problems RESTART IDENTITY CASCADE;
+TRUNCATE reviews, solve_logs, user_problems, list_problems, lists, problems, daily_time_spent RESTART IDENTITY CASCADE;
 -- leaves `users` alone; add it to the list above if you want a truly clean slate
 ```

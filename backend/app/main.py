@@ -17,6 +17,7 @@ from app.routers import (
     reviews,
     search,
     solve_logs,
+    time_spent,
     user_problems,
 )
 
@@ -94,6 +95,9 @@ app.include_router(
 )
 app.include_router(reviews.router, prefix="/api/v1/reviews", tags=["reviews"])
 app.include_router(search.router, prefix="/api/v1/user/search", tags=["search"])
+app.include_router(
+    time_spent.router, prefix="/api/v1/user/time-spent", tags=["time_spent"]
+)
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(portability.router, prefix="/api/v1/user", tags=["portability"])
