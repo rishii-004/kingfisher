@@ -20,16 +20,26 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 
-FROM caddy:2-alpine AS caddy-bin
-
-
 FROM python:3.12-slim
 
 RUN useradd --create-home --shell /usr/sbin/nologin app
 
 WORKDIR /app
 
-COPY --from=caddy-bin /usr/bin/caddy /usr/local/bin/caddy
+# Installed directly (not COPY --from=caddy:2-alpine) — copying the official
+# image's binary across build stages loses/corrupts its cap_net_bind_service
+# file capability, which some container runtimes (e.g. Render's) refuse to
+# exec ("Operation not permitted"). We don't need that capability anyway
+# since Caddy only ever binds to $PORT (>1024), so just fetch the plain
+# release binary.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=amd64" -o /usr/local/bin/caddy \
+    && chmod +x /usr/local/bin/caddy \
+    && apt-get purge -y curl \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=backend-builder /venv /venv
 ENV PATH="/venv/bin:$PATH"
 
