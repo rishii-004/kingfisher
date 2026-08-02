@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import Checkbox from "./Checkbox";
 import DifficultyBadge from "./DifficultyBadge";
@@ -28,9 +28,10 @@ interface Props {
   onAddToList?: (problem: Problem) => void;
   disabled?: boolean;
   status?: string;
+  dragHandle?: ReactNode;
 }
 
-export default function ProblemRow({ problem, solved, onSolve, onStatusChange, onAddToList, disabled, status }: Props) {
+export default function ProblemRow({ problem, solved, onSolve, onStatusChange, onAddToList, disabled, status, dragHandle }: Props) {
   const [statusOpen, setStatusOpen] = useState(false);
   const currentStatus = status ?? (solved ? "solved" : "todo");
 
@@ -39,6 +40,7 @@ export default function ProblemRow({ problem, solved, onSolve, onStatusChange, o
       variants={rowItem}
       className="glass-hover px-4 py-3 flex items-center gap-3"
     >
+      {dragHandle}
       <Checkbox
         checked={solved}
         onChange={() => onSolve(problem.id, !solved)}
@@ -46,9 +48,9 @@ export default function ProblemRow({ problem, solved, onSolve, onStatusChange, o
       />
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-start gap-x-2">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <span
-            className="min-w-0 text-sm font-medium text-rose-400 break-words transition-colors hover:text-rose-300 cursor-pointer"
+            className="text-sm font-medium text-rose-400 break-words transition-colors hover:text-rose-300 cursor-pointer"
             title={problem.platform_url ?? problem.title}
             onClick={() => {
               if (problem.platform_url) {
@@ -59,7 +61,7 @@ export default function ProblemRow({ problem, solved, onSolve, onStatusChange, o
             {problem.title}
           </span>
           {problem.company_tags.length > 0 && (
-            <div className="flex min-w-0 items-center gap-x-1.5 overflow-x-auto whitespace-nowrap no-scrollbar">
+            <div className="flex min-w-0 max-w-full items-center gap-x-1.5 overflow-x-auto whitespace-nowrap no-scrollbar">
               <span className="shrink-0 text-surface-500/40">·</span>
               {problem.company_tags.map((c, i) => (
                 <span key={c} className="flex shrink-0 items-center gap-x-1.5">

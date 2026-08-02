@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { Select as BaseSelect } from "@base-ui/react";
 
 interface Option {
@@ -16,9 +17,44 @@ interface Props {
 }
 
 export default function Select({ value, onChange, placeholder, options, className, bordered = true }: Props) {
+  const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const isOpenRef = useRef(false);
   const selected = options.find((o) => o.value === value);
+  const filtered = search.trim()
+    ? options.filter((o) => o.label.toLowerCase().includes(search.trim().toLowerCase()))
+    : options;
+
   return (
-    <BaseSelect.Root value={value} onValueChange={onChange}>
+    <BaseSelect.Root
+      value={value}
+      onValueChange={(v) => onChange(v ?? "")}
+      onOpenChange={(open) => {
+        isOpenRef.current = open;
+        if (!open) {
+          setSearch("");
+          return;
+        }
+        if (options.length <= 6) return;
+        // Base UI moves focus into the listbox itself once the popup
+        // mounts, which can happen before or after this fires and either
+        // way wins a single-attempt race against it. The first mount of a
+        // given popup can also take noticeably longer to settle (position
+        // measurement) than later opens, so keep retrying every frame for
+        // as long as the popup stays open rather than giving up quickly.
+        const tryFocus = () => {
+          if (!isOpenRef.current) return;
+          const input = searchInputRef.current;
+          if (input && document.activeElement !== input) {
+            input.focus();
+          }
+          if (!input || document.activeElement !== input) {
+            requestAnimationFrame(tryFocus);
+          }
+        };
+        requestAnimationFrame(tryFocus);
+      }}
+    >
       <BaseSelect.Trigger
         className={`group flex items-center gap-2 px-3 py-2 text-xs cursor-pointer outline-none ${
           bordered
@@ -34,10 +70,29 @@ export default function Select({ value, onChange, placeholder, options, classNam
         </BaseSelect.Icon>
       </BaseSelect.Trigger>
       <BaseSelect.Portal>
-        <BaseSelect.Positioner className="z-50" sideOffset={4}>
-          <BaseSelect.Popup className="origin-top-right min-w-[160px] bg-surface-100 border border-surface-300 shadow-lg py-1 data-[side=none]:animate-none data-[side=bottom]:animate-in data-[side=bottom]:fade-in data-[side=bottom]:slide-in-from-top-1">
-            <BaseSelect.List>
-              {options.map((opt) => (
+        {/* alignItemWithTrigger's "line the selected item up with the
+            trigger" math breaks once a search box shifts the popup's
+            internal layout, so fall back to normal below-trigger
+            positioning for any list long enough to have one. */}
+        <BaseSelect.Positioner className="z-50" sideOffset={4} alignItemWithTrigger={options.length <= 6}>
+          <BaseSelect.Popup className="origin-top-right min-w-[160px] max-h-[min(24rem,var(--available-height))] overflow-y-auto bg-surface-100 border border-surface-300 shadow-lg data-[side=none]:animate-none data-[side=bottom]:animate-in data-[side=bottom]:fade-in data-[side=bottom]:slide-in-from-top-1">
+            {options.length > 6 && (
+              <div className="sticky top-0 z-10 bg-surface-100 border-b border-surface-300/50 p-1.5">
+                <input
+                  ref={searchInputRef}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key !== "Escape") e.stopPropagation(); }}
+                  placeholder="Search..."
+                  className="w-full bg-surface-200/50 px-2 py-1.5 text-xs text-surface-700 outline-none placeholder:text-surface-500"
+                />
+              </div>
+            )}
+            <BaseSelect.List className="py-1">
+              {filtered.length === 0 && (
+                <div className="px-3 py-2 text-xs text-surface-500">No matches</div>
+              )}
+              {filtered.map((opt) => (
                 <BaseSelect.Item
                   key={opt.value}
                   value={opt.value}

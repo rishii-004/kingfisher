@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useLists, useListProgress, useList, useCreateList, useDeleteList, useForkList, useResetListProgress, useAddProblemToList, useListContainsProblem, type ListProgress } from "../hooks/use-lists";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
+import { useLists, useListProgress, useList, useCreateList, useDeleteList, useForkList, useResetListProgress, useAddProblemToList, useListContainsProblem, useReorderListProblems, type ListProgress } from "../hooks/use-lists";
 import { useUserProblems, useSetProblemStatus } from "../hooks/use-user-problems";
 import { useAuth } from "../hooks/use-auth";
 import { TOPICS } from "../lib/topics";
-import api from "../lib/api";
+import api, { getErrorMessage } from "../lib/api";
 import { toast } from "../lib/toast";
 import SolveLogPopup from "../features/solve-log/SolveLogPopup";
 import ListProgressCard from "../features/lists/ListProgressCard";
@@ -27,8 +27,62 @@ const cardItem = {
 };
 
 type Tab = "global" | "custom";
+type ListProblemItem = ProblemListDetail["problems"][number];
 
 const DIFFICULTIES = ["easy", "medium", "hard"] as const;
+
+function DraggableProblemRow({
+  problem,
+  draggable,
+  onDragEnd,
+  solved,
+  onSolve,
+  onStatusChange,
+  onAddToList,
+  disabled,
+  status,
+}: {
+  problem: ListProblemItem;
+  draggable: boolean;
+  onDragEnd: () => void;
+  solved: boolean;
+  onSolve: (problemId: string, toSolved: boolean) => void;
+  onStatusChange: (problemId: string, status: string) => void;
+  onAddToList: (problem: Problem) => void;
+  disabled?: boolean;
+  status?: string;
+}) {
+  const dragControls = useDragControls();
+  return (
+    <Reorder.Item value={problem} as="div" dragListener={false} dragControls={dragControls} onDragEnd={onDragEnd}>
+      <ProblemRow
+        problem={problem}
+        solved={solved}
+        onSolve={onSolve}
+        onStatusChange={onStatusChange}
+        onAddToList={onAddToList}
+        disabled={disabled}
+        status={status}
+        dragHandle={
+          draggable ? (
+            <button
+              type="button"
+              onPointerDown={(e) => dragControls.start(e)}
+              className="shrink-0 cursor-grab touch-none text-surface-500 transition-colors hover:text-surface-900 active:cursor-grabbing"
+              aria-label="Drag to reorder"
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                <circle cx="5" cy="3" r="1.3" /><circle cx="11" cy="3" r="1.3" />
+                <circle cx="5" cy="8" r="1.3" /><circle cx="11" cy="8" r="1.3" />
+                <circle cx="5" cy="13" r="1.3" /><circle cx="11" cy="13" r="1.3" />
+              </svg>
+            </button>
+          ) : undefined
+        }
+      />
+    </Reorder.Item>
+  );
+}
 
 function slugToTitle(slug: string): string {
   return slug
@@ -61,56 +115,37 @@ function AddProblemModal({ listId, onClose }: { listId: string; onClose: () => v
     if (extracted) setTitle(extracted);
   };
 
-  const handleAdd = async () => {
+  const addProblem = useAddProblemToList();
+
+  const handleAdd = () => {
     if (!url.trim() || !title.trim()) return;
     setStatus("adding");
     setMessage("");
-    try {
-      const mod = await import("../lib/api");
-      const api = mod.default;
-
-      // 1. Check if URL already exists in global problems
-      const searchRes = await api.get("/problems", { params: { q: url.trim(), per_page: 50 } });
-      const existing = searchRes.data?.data?.items?.find(
-        (p: any) => p.platform_url === url.trim(),
-      );
-
-      let problemId: string;
-      if (existing) {
-        problemId = existing.id;
-      } else {
-        // 2. Create new problem in global pool
-        const createRes = await api.post("/admin/problems", {
-          title: title.trim(),
-          slug: title.trim().toLowerCase().replace(/\s+/g, "-"),
-          platform: "leetcode",
-          platform_url: url.trim(),
-          difficulty,
-          topic_tags: topic ? [topic] : [],
-          company_tags: [],
-        });
-        problemId = createRes.data.data.id;
-      }
-
-      // 3. Add to list
-      const addRes = await api.post(`/lists/${listId}/problems`, { problem_id: problemId });
-      if (addRes.data?.data) {
-        if (addRes.data.data?.error) {
-          throw addRes.data.data.error;
-        }
-        setStatus("done");
-        setTimeout(onClose, 600);
-      } else {
-        throw new Error("Failed to add problem to list");
-      }
-    } catch (err: any) {
-      setStatus("idle");
-      if (err?.code === "DUPLICATE" || err?.message?.includes?.("already in list")) {
-        setMessage("This problem is already in the sheet.");
-      } else {
-        setMessage("Something went wrong. Try again.");
-      }
-    }
+    addProblem.mutate(
+      {
+        listId,
+        title: title.trim(),
+        platform: "leetcode",
+        platform_url: url.trim(),
+        difficulty,
+        topic_tags: topic ? [topic] : [],
+      },
+      {
+        onSuccess: () => {
+          setStatus("done");
+          setTimeout(onClose, 600);
+        },
+        onError: (err) => {
+          setStatus("idle");
+          const errMessage = getErrorMessage(err);
+          setMessage(
+            errMessage.includes("already in list")
+              ? "This problem is already in the sheet."
+              : errMessage,
+          );
+        },
+      },
+    );
   };
 
   return (
@@ -197,6 +232,52 @@ function ListDetailView({ listId, onBack, onResetProgress }: { listId: string; o
   const [solveLogProblem, setSolveLogProblem] = useState<{ id: string; title: string } | null>(null);
   const [addToListProblem, setAddToListProblem] = useState<Problem | null>(null);
   const { data: membership } = useListContainsProblem(addToListProblem?.id ?? null);
+  const [collapsedTopics, setCollapsedTopics] = useState<Set<string>>(new Set());
+  const reorderProblems = useReorderListProblems();
+  const [localProblems, setLocalProblems] = useState<ListProblemItem[]>([]);
+  const localProblemsRef = useRef(localProblems);
+
+  useEffect(() => {
+    if (listData) setLocalProblems(listData.problems);
+  }, [listData]);
+
+  useEffect(() => {
+    localProblemsRef.current = localProblems;
+  }, [localProblems]);
+
+  const toggleTopic = (topic: string) => {
+    setCollapsedTopics((prev) => {
+      const next = new Set(prev);
+      if (next.has(topic)) next.delete(topic);
+      else next.add(topic);
+      return next;
+    });
+  };
+
+  const topicOf = (p: ListProblemItem) => p.topic_tags[0] || "Other";
+
+  const handleTopicReorder = (topic: string, newTopicOrder: ListProblemItem[]) => {
+    setLocalProblems((prev) => {
+      const byTopic: Record<string, ListProblemItem[]> = {};
+      for (const p of prev) {
+        const t = topicOf(p);
+        (byTopic[t] ??= []).push(p);
+      }
+      const next: ListProblemItem[] = [];
+      for (const t of Object.keys(byTopic)) {
+        next.push(...(t === topic ? newTopicOrder : byTopic[t]));
+      }
+      return next;
+    });
+  };
+
+  const commitReorder = () => {
+    if (!listData?.is_custom) return;
+    reorderProblems.mutate(
+      { listId, problemIds: localProblemsRef.current.map((p) => p.id) },
+      { onError: (err) => toast.error((err as Error).message) },
+    );
+  };
 
   const handleSolve = (problemId: string, toSolved: boolean) => {
     setStatus.mutate(
@@ -252,12 +333,17 @@ function ListDetailView({ listId, onBack, onResetProgress }: { listId: string; o
   const solved = listData.problems.filter((p) => statusMap[p.id] === "solved").length;
   const progressPct = total > 0 ? Math.round((solved / total) * 100) : 0;
 
-  const grouped: Record<string, ProblemListDetail["problems"]> = {};
-  for (const p of listData.problems) {
-    const topic = p.topic_tags[0] || "Other";
+  const grouped: Record<string, ListProblemItem[]> = {};
+  for (const p of localProblems) {
+    const topic = topicOf(p);
     if (!grouped[topic]) grouped[topic] = [];
     grouped[topic].push(p);
   }
+  const topicKeys = Object.keys(grouped);
+  const allCollapsed = topicKeys.length > 0 && topicKeys.every((t) => collapsedTopics.has(t));
+  const toggleAllTopics = () => {
+    setCollapsedTopics(allCollapsed ? new Set() : new Set(topicKeys));
+  };
 
   return (
     <div className="space-y-6">
@@ -297,8 +383,13 @@ function ListDetailView({ listId, onBack, onResetProgress }: { listId: string; o
         </div>
       </div>
 
-      {/* Add problem button */}
-      <div className="flex justify-end">
+      {/* Add problem / collapse-all buttons */}
+      <div className="flex justify-end gap-2">
+        {topicKeys.length > 0 && (
+          <GhostButton onClick={toggleAllTopics} className="!px-3 !py-1.5 !text-xs">
+            {allCollapsed ? "Expand all" : "Collapse all"}
+          </GhostButton>
+        )}
         <GhostButton onClick={() => setShowAdd(true)} className="!px-3 !py-1.5 !text-xs">
           + Add problem
         </GhostButton>
@@ -310,26 +401,49 @@ function ListDetailView({ listId, onBack, onResetProgress }: { listId: string; o
 
       {Object.entries(grouped).map(([topic, problems]) => {
         const topicSolved = problems.filter((p) => statusMap[p.id] === "solved").length;
+        const collapsed = collapsedTopics.has(topic);
         return (
           <div key={topic}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-widest">{topic}</h3>
+            <button
+              type="button"
+              onClick={() => toggleTopic(topic)}
+              className="flex w-full items-center justify-between gap-2 mb-2 text-left cursor-pointer group"
+            >
+              <span className="flex items-center gap-1.5">
+                <svg
+                  width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                  className={`text-surface-500 transition-transform ${collapsed ? "-rotate-90" : ""}`}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+                <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-widest group-hover:text-surface-900 transition-colors">{topic}</h3>
+              </span>
               <span className="text-xs text-surface-500">{topicSolved}/{problems.length}</span>
-            </div>
-            <div className="space-y-1">
-              {problems.map((problem) => (
-                <ProblemRow
-                  key={problem.id}
-                  problem={problem}
-                  solved={statusMap[problem.id] === "solved"}
-                  onSolve={handleSolve}
-                  onStatusChange={handleStatusChange}
-                  onAddToList={setAddToListProblem}
-                  disabled={setStatus.isPending}
-                  status={statusMap[problem.id] ?? "todo"}
-                />
-              ))}
-            </div>
+            </button>
+            {!collapsed && (
+              <Reorder.Group
+                as="div"
+                axis="y"
+                values={problems}
+                onReorder={(newOrder) => handleTopicReorder(topic, newOrder)}
+                className="space-y-1"
+              >
+                {problems.map((problem) => (
+                  <DraggableProblemRow
+                    key={problem.id}
+                    problem={problem}
+                    draggable={listData.is_custom}
+                    onDragEnd={commitReorder}
+                    solved={statusMap[problem.id] === "solved"}
+                    onSolve={handleSolve}
+                    onStatusChange={handleStatusChange}
+                    onAddToList={setAddToListProblem}
+                    disabled={setStatus.isPending}
+                    status={statusMap[problem.id] ?? "todo"}
+                  />
+                ))}
+              </Reorder.Group>
+            )}
           </div>
         );
       })}

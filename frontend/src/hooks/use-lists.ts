@@ -109,6 +109,28 @@ export function useCreateList() {
   });
 }
 
+interface CreateListFromFilterInput {
+  name: string;
+  description?: string;
+  q?: string;
+  platform?: string;
+  difficulty?: string;
+  topic?: string;
+  company?: string;
+}
+
+export function useCreateListFromFilter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateListFromFilterInput) => {
+      const { data } = await api.post<ApiResponse<ProblemList>>("/lists/from-filter", input);
+      if (data.error) throw new Error(data.error.message);
+      return data.data!;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lists"] }),
+  });
+}
+
 export function useUpdateList(id: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -164,13 +186,29 @@ export function useResetListProgress() {
   });
 }
 
+interface AddProblemToListInput {
+  listId: string;
+  order?: number;
+  // Either problemId (add an existing problem)...
+  problemId?: string;
+  // ...or enough fields to create a new one inline.
+  title?: string;
+  slug?: string;
+  platform?: string;
+  platform_url?: string;
+  difficulty?: string;
+  topic_tags?: string[];
+  company_tags?: string[];
+}
+
 export function useAddProblemToList() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { listId: string; problemId: string; order?: number }) => {
+    mutationFn: async (input: AddProblemToListInput) => {
+      const { listId, problemId, ...newProblemFields } = input;
       const { data } = await api.post<ApiResponse<{ list_id: string; problem_id: string; order: number }>>(
-        `/lists/${input.listId}/problems`,
-        { problem_id: input.problemId, order: input.order }
+        `/lists/${listId}/problems`,
+        problemId ? { problem_id: problemId, order: input.order } : newProblemFields,
       );
       if (data.error) throw new Error(data.error.message);
       return data.data!;
@@ -184,6 +222,19 @@ export function useRemoveProblemFromList() {
   return useMutation({
     mutationFn: async (input: { listId: string; problemId: string }) => {
       const { data } = await api.delete<ApiResponse<null>>(`/lists/${input.listId}/problems/${input.problemId}`);
+      if (data?.error) throw new Error(data.error.message);
+    },
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["list", vars.listId] }),
+  });
+}
+
+export function useReorderListProblems() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { listId: string; problemIds: string[] }) => {
+      const { data } = await api.put<ApiResponse<null>>(`/lists/${input.listId}/problems/reorder`, {
+        problem_ids: input.problemIds,
+      });
       if (data?.error) throw new Error(data.error.message);
     },
     onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["list", vars.listId] }),

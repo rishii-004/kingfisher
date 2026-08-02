@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Link, Outlet, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { Suspense, lazy, useEffect } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { queryClient } from "./lib/query-client";
@@ -10,15 +10,22 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 import ToastContainer from "./components/ToastContainer";
 import CommandPalette from "./features/search/CommandPalette";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
-import Problems from "./pages/Problems";
-import Lists from "./pages/Lists";
-import Review from "./pages/Review";
-import Analytics from "./pages/Analytics";
-import Settings from "./pages/Settings";
-import Admin from "./pages/Admin";
+
+// Each page is its own chunk, so e.g. logging in only loads Login, not
+// Analytics + Admin + everything else on first paint.
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Problems = lazy(() => import("./pages/Problems"));
+const Lists = lazy(() => import("./pages/Lists"));
+const Review = lazy(() => import("./pages/Review"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Admin = lazy(() => import("./pages/Admin"));
+
+function PageLoading() {
+  return <div className="h-64 animate-pulse bg-surface-200/50" />;
+}
 
 const navItems = [
   { to: "/", label: "dashboard", icon: (
@@ -192,21 +199,23 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route element={<ProtectedRoute />}>
-            <Route element={<Layout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="problems" element={<Problems />} />
-              <Route path="sheets" element={<Lists />} />
-              <Route path="review" element={<Review />} />
-              <Route path="analytics" element={<Analytics />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="admin" element={<Admin />} />
+        <Suspense fallback={<PageLoading />}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route element={<ProtectedRoute />}>
+              <Route element={<Layout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="problems" element={<Problems />} />
+                <Route path="sheets" element={<Lists />} />
+                <Route path="review" element={<Review />} />
+                <Route path="analytics" element={<Analytics />} />
+                <Route path="settings" element={<Settings />} />
+                <Route path="admin" element={<Admin />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </QueryClientProvider>
   );

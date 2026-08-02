@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-ssr/
+.git/
+*.local
+
+# Dev-only scratch files (gitignored, not shipped — see src/main.tsx).
+# Docker's build context isn't git-aware, so these must be listed
+# explicitly or a local checkout that happens to have them breaks the
+# build even though a fresh clone never would.
+src/lib/mock.ts
+src/lib/mock-data.ts

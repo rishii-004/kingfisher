@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import api from "../lib/api";
 import type {
   ApiResponse, CompanyMastery, ConsistencyData, DifficultyBreakdown, HeatmapEntry,
-  MistakeBreakdown, RadarEntry, ReviewPipeline, TimeSpentDay,
+  MistakeBreakdown, RadarEntry, ReviewPipeline,
   TopicMastery, WeeklyPattern,
 } from "../types";
 
@@ -33,17 +33,6 @@ export function useDifficultyBreakdown() {
     queryKey: ["analytics", "difficulty"],
     queryFn: async () => {
       const { data } = await api.get<ApiResponse<DifficultyBreakdown>>("/analytics/difficulty");
-      if (data.error) throw new Error(data.error.message);
-      return data.data!;
-    },
-  });
-}
-
-export function useTimeSpentWeek() {
-  return useQuery({
-    queryKey: ["analytics", "time-spent-week"],
-    queryFn: async () => {
-      const { data } = await api.get<ApiResponse<TimeSpentDay[]>>("/analytics/time-spent-week");
       if (data.error) throw new Error(data.error.message);
       return data.data!;
     },

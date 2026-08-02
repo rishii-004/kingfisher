@@ -217,6 +217,45 @@ function ListsSection() {
   );
 }
 
+function MaxListsControl({ user }: { user: User }) {
+  const qc = useQueryClient();
+  const [value, setValue] = useState(String(user.max_lists));
+
+  const update = useMutation({
+    mutationFn: async (maxLists: number) => {
+      const { data } = await api.patch<ApiResponse<User>>(`/admin/users/${user.id}/max-lists`, { max_lists: maxLists });
+      if (data.error) throw new Error(data.error.message);
+      return data.data!;
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-users"] }); toast.success("List limit updated"); },
+    onError: (err) => { toast.error((err as Error).message); setValue(String(user.max_lists)); },
+  });
+
+  if (user.is_admin) {
+    return <span className="text-xs text-surface-500 w-24 text-center">Unlimited</span>;
+  }
+
+  const submit = () => {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 0) { setValue(String(user.max_lists)); return; }
+    if (parsed !== user.max_lists) update.mutate(parsed);
+  };
+
+  return (
+    <input
+      type="number"
+      min={0}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={submit}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+      disabled={update.isPending}
+      className="input-glass w-24 px-2 py-1 text-xs text-center"
+      title="Max custom lists"
+    />
+  );
+}
+
 function UsersSection() {
   const qc = useQueryClient();
   const [q, setQ] = useState("");
@@ -270,6 +309,7 @@ function UsersSection() {
                 }`}>
                   {u.is_admin ? "Admin" : "User"}
                 </span>
+                <MaxListsControl user={u} />
                 <button onClick={() => toggleAdmin.mutate(u.id)} className="btn-secondary text-xs py-1 px-2">
                   Toggle
                 </button>

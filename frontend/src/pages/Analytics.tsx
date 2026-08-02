@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  useHeatmapData, useDifficultyBreakdown, useTimeSpentWeek,
+  useHeatmapData, useDifficultyBreakdown,
   useWeeklyPattern, useTopicMastery,
   useReviewPipeline, useCompanyMastery,
 } from "../hooks/use-analytics";
+import { useTimeSpentWeek, todayKey } from "../hooks/use-time-spent";
 import type { TopicMastery } from "../types";
 
 const container = {
@@ -665,14 +666,13 @@ function TotalSolvedChart() {
 
 /* ---------- Time Spent (last 7 days) ---------- */
 function TimeChart() {
-  const { data, isLoading } = useTimeSpentWeek();
+  const data = useTimeSpentWeek();
 
-  if (isLoading) return <div className="h-32 animate-pulse bg-surface-200" />;
-  if (!data || data.length === 0) return null;
+  if (data.length === 0) return null;
 
   const totalMinutes = data.reduce((s, d) => s + d.minutes, 0);
   const maxMinutes = Math.max(...data.map((d) => d.minutes), 1);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayKey();
 
   return (
     <div className="space-y-3">
