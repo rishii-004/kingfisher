@@ -1,0 +1,19 @@
+# Serves the built SPA and reverse-proxies /api/* to the backend running in
+# the same container, so the browser only ever talks to one origin (no CORS,
+# works on any hostname). See ../Dockerfile and ./entrypoint.sh.
+#
+# Port: Render injects PORT (default 10000) and routes traffic to it; local
+# runs fall back to 8080.
+:{$PORT:8080} {
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy localhost:8000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

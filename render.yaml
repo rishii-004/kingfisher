@@ -1,43 +1,41 @@
 # kingfisher — Render Blueprint (Infrastructure as Code)
 #
-# Deploys the app on Render with Docker runtimes:
-#   1. kingfisher-api  — FastAPI backend (Docker, backend/Dockerfile on branch `backend`)
-#   2. kingfisher-app  — React SPA (Docker, frontend/Dockerfile on branch `frontend`),
-#                        served by Caddy which also reverse-proxies /api/* to the
-#                        backend, so the browser only ever talks to one origin.
+# Deploys the app on Render as a single Docker service (root `Dockerfile`,
+# branch `main`): FastAPI backend (Alembic migrations + Uvicorn, internal-only
+# on 127.0.0.1:8000) and the React SPA, both served behind Caddy on $PORT.
+# Caddy reverse-proxies /api/* to the backend inside the same container, so
+# the browser only ever talks to one origin. See deploy/Caddyfile and
+# deploy/entrypoint.sh.
 #
 # The database is NOT provisioned by Render — it's an external PostgreSQL
 # (Supabase). When you create the Blueprint you'll be prompted for
 # DATABASE_URL (a Supabase connection string); it's pasted straight into the
-# backend service's env (see `sync: false` below). If you ever want Render's
-# managed Postgres instead, remove the DATABASE_URL sync entry and re-add the
-# classic `databases:` block with a `fromDatabase` reference.
-#
-# The repo uses one GitHub repo with three branches (main = this deploy config,
-# backend = backend source, frontend = frontend source), mirrored as git
-# worktrees locally. Each service builds its own branch.
+# service's env (see `sync: false` below). If you ever want Render's managed
+# Postgres instead, remove the DATABASE_URL sync entry and re-add the classic
+# `databases:` block with a `fromDatabase` reference.
 #
 # How to deploy:
-#   1. Push these changes to GitHub (backend, frontend, and main branches).
+#   1. Push these changes to GitHub (main branch).
 #   2. Render dashboard → New → Blueprint → pick this repo → select this
 #      render.yaml. Paste DATABASE_URL (Supabase) and the other values marked
 #      `sync: false` when prompted.
-#   3. After the first successful backend deploy, seed the problem catalog
-#      once from the Render shell:
+#   3. After the first successful deploy, seed the problem catalog once from
+#      the Render shell:
 #        python -m scripts.seed
-#      (Render dashboard → kingfisher-api → Shell). Idempotent — safe to rerun.
+#      (Render dashboard → kingfisher → Shell). Idempotent — safe to rerun.
 #
 # Full walkthrough: docs/RENDER_DEPLOY.md
 
 services:
-  # Backend API — FastAPI + Alembic migrations + Uvicorn
+  # Backend (FastAPI + Alembic + Uvicorn) and frontend (React SPA via Caddy)
+  # in one container. See ../Dockerfile.
   - type: web
-    name: kingfisher-api
+    name: kingfisher
     runtime: docker
     repo: https://github.com/rishii-004/kingfisher.git
-    branch: backend
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     plan: free              # free web services spin down after ~15 min idle
     healthCheckPath: /api/v1/health
     envVars:
@@ -51,30 +49,15 @@ services:
         generateValue: true
       - key: ENVIRONMENT
         value: production
-      # The frontend's origin (Render subdomain or your custom domain), e.g.
-      # https://kingfisher-app.onrender.com — Caddy proxies /api/* same-origin,
-      # so this is mostly for direct cross-origin calls, but set it anyway.
+      # Only needed for direct cross-origin calls to the API (e.g. from
+      # another domain, or the Render dashboard's API tester) — normal app
+      # traffic is same-origin via Caddy's /api/* proxy.
       - key: CORS_ORIGINS
         sync: false
       # Optional: promote this email to admin on each backend boot once the
-      # account has registered (see kingfisher-backend/docs/DATABASE.md).
+      # account has registered (see docs/DATABASE.md).
       - key: INITIAL_ADMIN_EMAIL
         value: ""
       # Default owned-list quota (created + forked) for new users.
       - key: DEFAULT_MAX_LISTS
         value: "30"
-
-  # Frontend — Caddy serves the static SPA on $PORT and proxies /api/* to the
-  # backend URL in BACKEND_URL (set at creation; e.g. https://kingfisher-api.onrender.com).
-  - type: web
-    name: kingfisher-app
-    runtime: docker
-    repo: https://github.com/rishii-004/kingfisher.git
-    branch: frontend
-    dockerfilePath: ./frontend/Dockerfile
-    dockerContext: ./frontend
-    plan: free
-    healthCheckPath: /
-    envVars:
-      - key: BACKEND_URL
-        sync: false
