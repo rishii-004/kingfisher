@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.models.list_problem import ListProblem
 from app.models.problem import Problem
+from app.models.review import Review
+from app.models.solve_log import SolveLog
 from app.models.user_problem import UserProblem
 
 
@@ -68,3 +70,29 @@ def set_status(
 
     solve_log_required = (new_status == "solved" and not was_solved)
     return up, solve_log_required
+
+
+def reset_list_progress(db: Session, list_id: str, user_id: str) -> None:
+    problem_ids = [
+        row.problem_id
+        for row in db.query(ListProblem).filter(ListProblem.list_id == list_id).all()
+    ]
+    if not problem_ids:
+        return
+
+    db.query(UserProblem).filter(
+        UserProblem.user_id == user_id,
+        UserProblem.problem_id.in_(problem_ids),
+    ).update({"status": "todo", "solved_at": None}, synchronize_session=False)
+
+    db.query(Review).filter(
+        Review.user_id == user_id,
+        Review.problem_id.in_(problem_ids),
+    ).delete(synchronize_session=False)
+
+    db.query(SolveLog).filter(
+        SolveLog.user_id == user_id,
+        SolveLog.problem_id.in_(problem_ids),
+    ).delete(synchronize_session=False)
+
+    db.commit()

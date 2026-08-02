@@ -1,10 +1,16 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-psycopg2-binary
-alembic
-pydantic-settings
-python-jose[cryptography]
+fastapi==0.141.1
+uvicorn[standard]==0.52.0
+sqlalchemy==2.0.51
+psycopg2-binary==2.9.12
+alembic==1.18.5
+pydantic-settings==2.14.2
+python-jose[cryptography]==3.5.0
 
-python-multipart
-email-validator
+python-multipart==0.0.32
+email-validator==2.3.0
+
+bcrypt==5.0.0
+
+# Testing
+pytest==9.1.1
+httpx==0.28.1

@@ -57,6 +57,7 @@ interface User {
   email: string;
   username: string;
   is_admin: boolean;
+  max_lists: number;    // owned-list quota (created + forked); ignored for admins
   created_at: string;   // ISO 8601
   updated_at: string;   // ISO 8601
 }
@@ -298,6 +299,19 @@ Response 200:
 }
 ```
 
+#### GET /problems/companies
+Get every distinct company tag currently present in the problem catalog
+(sorted, deduped) — used to populate the company filter dropdown
+instead of a hardcoded list. [PUBLIC]
+
+```
+Response 200:
+{
+  "data": { "companies": ["Adobe", "Amazon", "Apple", ...] },
+  "error": null
+}
+```
+
 ---
 
 ### Lists
@@ -351,6 +365,40 @@ Response 201:
   "data": { ... ProblemList },
   "error": null
 }
+
+Errors:
+  - 409: List limit reached (max_lists quota) — not raised for admins
+```
+
+#### POST /lists/from-filter
+Create a custom list and populate it with every problem currently
+matching the given filters (same params as `GET /problems`; at least
+one must be set). Meant for the "All Problems" browse page: apply a
+filter combination, then turn the whole result set into a list in one
+call instead of paging through results and adding problems one by one. [PROTECTED]
+
+```
+Request:
+{
+  "name": "Amazon Medium Array",
+  "description": "optional",
+  "q": "optional search text",
+  "platform": "leetcode",
+  "difficulty": "medium",
+  "topic": "Array",
+  "company": "Amazon"
+}
+
+Response 201:
+{
+  "data": { ... ProblemList },   // problem_count reflects everything added
+  "error": null
+}
+
+Errors:
+  - 422: No filter provided (q/platform/difficulty/topic/company all empty)
+  - 400: No problems match these filters
+  - 409: List limit reached (max_lists quota) — not raised for admins
 ```
 
 #### PUT /lists/{id}
@@ -399,16 +447,29 @@ Errors:
   - 404: List not found
   - 400: List is not a global list
   - 409: Already forked this list
+  - 409: List limit reached (max_lists quota) — not raised for admins
 ```
 
 #### POST /lists/{id}/problems
 Add a problem to a custom list. [PROTECTED]
 
 ```
-Request:
+Request (existing problem):
 {
   "problem_id": "uuid",
   "order": 1      // optional, appends to end if omitted
+}
+
+Request (problem doesn't exist in the global pool yet — created inline):
+{
+  "title": "Two Sum",
+  "platform": "leetcode",
+  "platform_url": "https://leetcode.com/problems/two-sum/",
+  "difficulty": "easy",
+  "topic_tags": ["Arrays & Hashing"],   // optional
+  "company_tags": ["Google"],          // optional
+  "slug": "two-sum",                   // optional, derived from title if omitted
+  "order": 1                           // optional
 }
 
 Response 201:
@@ -422,9 +483,31 @@ Response 201:
 }
 
 Errors:
-  - 404: List or Problem not found
+  - 404: List or Problem not found (only applies to the problem_id form)
   - 403: Not owner of this list
   - 409: Problem already in list
+  - 422: Neither problem_id nor (title, platform, difficulty) provided
+
+Notes:
+  - When creating inline, the problem is get-or-created by slug (or by
+    platform_url if slug doesn't match) so re-adding the same URL from
+    a different list reuses the existing Problem row instead of
+    duplicating it. This does not go through /admin/problems and does
+    not require is_admin — it's scoped to "I'm tracking a problem that
+    isn't in the system yet," not general problem catalog management.
+```
+
+#### POST /lists/{id}/reset
+Reset the current user's progress on all problems in a list (global
+or a list they own) — clears status back to "todo", solved_at, and
+deletes their solve logs and reviews for every problem in that list.
+Does not delete the list or remove problems from it. [PROTECTED]
+
+```
+Response 204: No Content
+
+Errors:
+  - 404: List not found
 ```
 
 #### DELETE /lists/{id}/problems/{problem_id}
@@ -436,6 +519,27 @@ Response 204: No Content
 Errors:
   - 404: List or Problem not found
   - 403: Not owner of this list
+```
+
+#### PUT /lists/{id}/problems/reorder
+Set a new order for every problem in a custom list. `problem_ids` must
+be the full set of problem ids currently in the list (just reordered,
+not added/removed) — the frontend uses this to persist drag-and-drop
+reordering within a topic group by resending the list's full order with
+that group's slice rearranged. [PROTECTED]
+
+```
+Request:
+{
+  "problem_ids": ["<id-3>", "<id-1>", "<id-2>"]
+}
+
+Response 204: No Content
+
+Errors:
+  - 404: List not found
+  - 403: Not owner of this list
+  - 400: problem_ids must match the list's current problems exactly
 ```
 
 ---
@@ -664,7 +768,9 @@ Errors:
 ### Analytics
 
 #### GET /analytics/heatmap?year=2026
-Get daily solve counts for the contribution heatmap. [PROTECTED]
+Get daily solve counts for the contribution heatmap. Always returns
+one entry per day of the year (365/366 entries), zero-filled for days
+with no solves. [PROTECTED]
 
 ```
 Query Params:
@@ -703,7 +809,9 @@ Response 200:
 ```
 
 #### GET /analytics/difficulty
-Get difficulty breakdown. [PROTECTED]
+Get difficulty breakdown: solved counts plus the total number of
+problems that exist per difficulty (global, not user-scoped) so the
+frontend can render a "12/25 easy" style ring. [PROTECTED]
 
 ```
 Response 200:
@@ -711,7 +819,10 @@ Response 200:
   "data": {
     "easy": 25,
     "medium": 40,
-    "hard": 10
+    "hard": 10,
+    "easy_total": 60,
+    "medium_total": 80,
+    "hard_total": 30
   },
   "error": null
 }
@@ -733,11 +844,131 @@ Response 200:
 }
 ```
 
+#### GET /analytics/weekly-pattern
+Get all-time solve counts grouped by day of week (Mon–Sun). [PROTECTED]
+
+```
+Response 200:
+{
+  "data": [
+    { "day": "Mon", "count": 4 },
+    { "day": "Tue", "count": 2 },
+    ...
+  ],
+  "error": null
+}
+```
+
+#### GET /analytics/topic-mastery
+Get per-topic mastery: for every topic tag that appears on any
+problem, how many the user solved out of how many exist, how many
+completed review cycles touched that topic, and how many mistake
+tags were logged against it. [PROTECTED]
+
+```
+Response 200:
+{
+  "data": [
+    { "topic": "Dynamic Programming", "solved": 6, "total": 15, "reviews_completed": 2, "mistakes": 3 },
+    ...
+  ],
+  "error": null
+}
+```
+
+#### GET /analytics/company
+Get per-company mastery: solved vs. total problems tagged with that
+company. [PROTECTED]
+
+```
+Response 200:
+{
+  "data": [
+    { "company": "Google", "solved": 8, "total": 20 },
+    ...
+  ],
+  "error": null
+}
+```
+
+#### GET /analytics/mistakes
+Get a count of each mistake tag (from the controlled vocabulary
+below) across the user's solve logs. Always returns all 8 tags, zero
+for unused ones, sorted by count descending. [PROTECTED]
+
+```
+Response 200:
+{
+  "data": [
+    { "tag": "off_by_one", "label": "Off-by-one", "count": 5 },
+    { "tag": "edge_case_missed", "label": "Edge case missed", "count": 3 },
+    ...
+  ],
+  "error": null
+}
+```
+
+#### GET /analytics/review-pipeline
+Get a count of the user's scheduled reviews bucketed by due date. [PROTECTED]
+
+```
+Response 200:
+{
+  "data": {
+    "overdue": 2,
+    "due_today": 1,
+    "due_this_week": 4,
+    "due_next_week": 3,
+    "due_later": 6
+  },
+  "error": null
+}
+```
+
+#### GET /analytics/consistency
+Get solve-count rollups and streak data. [PROTECTED]
+
+```
+Response 200:
+{
+  "data": {
+    "total_solved": 42,
+    "solved_this_month": 8,
+    "solved_last_7_days": 3,
+    "solved_last_30_days": 12,
+    "current_streak": 2,
+    "longest_streak": 9
+  },
+  "error": null
+}
+```
+
 ---
 
 ### Admin
 
 All admin endpoints require `is_admin: true`. Returns `403 Forbidden` otherwise.
+
+#### GET /admin/problems
+List every problem (not scoped to lists), for the admin problem
+management panel. [ADMIN]
+
+```
+Query Params:
+  ?page=1&per_page=20
+  &q=two             // search title/slug
+
+Response 200:
+{
+  "data": {
+    "items": [ ... Problem ],
+    "total": 80,
+    "page": 1,
+    "per_page": 20
+  },
+  "error": null
+}
+```
 
 #### POST /admin/problems
 Create a new problem (global). [ADMIN]
@@ -793,6 +1024,25 @@ Response 204: No Content
 
 Errors:
   - 404: Problem not found
+```
+
+#### GET /admin/lists
+List every global list, for the admin sheet management panel. [ADMIN]
+
+```
+Query Params:
+  ?page=1&per_page=20
+
+Response 200:
+{
+  "data": {
+    "items": [ ... ProblemList ],
+    "total": 3,
+    "page": 1,
+    "per_page": 20
+  },
+  "error": null
+}
 ```
 
 #### POST /admin/lists
@@ -911,6 +1161,27 @@ Response 200:
 Errors:
   - 404: User not found
   - 400: Cannot toggle your own admin status
+```
+
+#### PATCH /admin/users/{id}/max-lists
+Set a user's custom-list quota (overrides the default of 30). Has no
+effect on admins, who are always unlimited. [ADMIN]
+
+```
+Request:
+{
+  "max_lists": 50
+}
+
+Response 200:
+{
+  "data": { ... User },  // max_lists updated
+  "error": null
+}
+
+Errors:
+  - 404: User not found
+  - 422: max_lists must be >= 0
 ```
 
 #### DELETE /admin/users/{id}

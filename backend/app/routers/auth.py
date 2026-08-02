@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
+from app.models.user import User
 from app.schemas.auth import (
     RefreshRequest,
     TokenRefreshResponse,
@@ -10,6 +12,7 @@ from app.schemas.auth import (
     UserLogin,
     UserResponse,
 )
+from app.schemas.envelope import Envelope
 from app.services.auth import (
     get_current_user,
     get_user_by_email,
@@ -18,12 +21,15 @@ from app.services.auth import (
     verify_password,
 )
 from app.utils.auth import create_access_token, create_refresh_token, decode_token
-from app.models.user import User
 
 router = APIRouter()
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=Envelope[TokenResponse],
+    status_code=status.HTTP_201_CREATED,
+)
 def register(body: UserCreate, db: Session = Depends(get_db)):
     existing = get_user_by_email(db, body.email)
     if existing:
@@ -42,6 +48,7 @@ def register(body: UserCreate, db: Session = Depends(get_db)):
         email=body.email,
         username=body.username,
         hashed_password=hash_password(body.password),
+        max_lists=settings.DEFAULT_MAX_LISTS,
     )
     db.add(user)
     db.commit()
@@ -50,14 +57,16 @@ def register(body: UserCreate, db: Session = Depends(get_db)):
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserResponse.model_validate(user),
+    return Envelope(
+        data=TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user=UserResponse.model_validate(user),
+        )
     )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=Envelope[TokenResponse])
 def login(body: UserLogin, db: Session = Depends(get_db)):
     user = get_user_by_email(db, body.email)
     if not user or not verify_password(body.password, user.hashed_password):
@@ -69,14 +78,16 @@ def login(body: UserLogin, db: Session = Depends(get_db)):
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        user=UserResponse.model_validate(user),
+    return Envelope(
+        data=TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user=UserResponse.model_validate(user),
+        )
     )
 
 
-@router.post("/refresh", response_model=TokenRefreshResponse)
+@router.post("/refresh", response_model=Envelope[TokenRefreshResponse])
 def refresh(body: RefreshRequest):
     payload = decode_token(body.refresh_token)
     if payload is None or payload.get("type") != "refresh":
@@ -89,12 +100,14 @@ def refresh(body: RefreshRequest):
     new_access = create_access_token({"sub": sub})
     new_refresh = create_refresh_token({"sub": sub})
 
-    return TokenRefreshResponse(
-        access_token=new_access,
-        refresh_token=new_refresh,
+    return Envelope(
+        data=TokenRefreshResponse(
+            access_token=new_access,
+            refresh_token=new_refresh,
+        )
     )
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=Envelope[UserResponse])
 def me(current_user: User = Depends(get_current_user)):
-    return UserResponse.model_validate(current_user)
+    return Envelope(data=UserResponse.model_validate(current_user))

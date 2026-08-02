@@ -38,8 +38,8 @@ def export_user_data(db: Session, user_id: str) -> dict:
 
     custom_list_data = []
     for lst in custom_lists:
-        problems = (
-            db.query(Problem)
+        rows = (
+            db.query(Problem, ListProblem.order)
             .join(ListProblem, Problem.id == ListProblem.problem_id)
             .filter(ListProblem.list_id == lst.id)
             .order_by(ListProblem.order)
@@ -52,6 +52,7 @@ def export_user_data(db: Session, user_id: str) -> dict:
             "is_global": lst.is_global,
             "is_custom": lst.is_custom,
             "owner_id": str(lst.owner_id) if lst.owner_id else None,
+            "problem_count": len(rows),
             "created_at": lst.created_at.isoformat(),
             "updated_at": lst.updated_at.isoformat(),
             "problems": [
@@ -66,8 +67,9 @@ def export_user_data(db: Session, user_id: str) -> dict:
                     "company_tags": p.company_tags,
                     "created_at": p.created_at.isoformat(),
                     "updated_at": p.updated_at.isoformat(),
+                    "order": order,
                 }
-                for p in problems
+                for p, order in rows
             ],
         })
 
@@ -80,6 +82,7 @@ def export_user_data(db: Session, user_id: str) -> dict:
             "username": user.username,
             "is_admin": user.is_admin,
             "created_at": user.created_at.isoformat(),
+            "updated_at": user.updated_at.isoformat(),
         },
         "user_problems": [
             {
@@ -138,22 +141,24 @@ def import_user_data(db: Session, user_id: str, data: dict) -> dict:
     if "user_problems" in data:
         for item in data["user_problems"]:
             try:
-                existing = db.query(UserProblem).filter(
-                    UserProblem.user_id == user_id,
-                    UserProblem.problem_id == item["problem_id"],
-                ).first()
-                if existing:
-                    existing.status = item.get("status", existing.status)
-                    if item.get("solved_at"):
-                        existing.solved_at = datetime.fromisoformat(item["solved_at"])
-                else:
-                    up = UserProblem(
-                        user_id=user_id,
-                        problem_id=item["problem_id"],
-                        status=item.get("status", "todo"),
-                        solved_at=datetime.fromisoformat(item["solved_at"]) if item.get("solved_at") else None,
-                    )
-                    db.add(up)
+                with db.begin_nested():
+                    existing = db.query(UserProblem).filter(
+                        UserProblem.user_id == user_id,
+                        UserProblem.problem_id == item["problem_id"],
+                    ).first()
+                    if existing:
+                        existing.status = item.get("status", existing.status)
+                        if item.get("solved_at"):
+                            existing.solved_at = datetime.fromisoformat(item["solved_at"])
+                    else:
+                        up = UserProblem(
+                            user_id=user_id,
+                            problem_id=item["problem_id"],
+                            status=item.get("status", "todo"),
+                            solved_at=datetime.fromisoformat(item["solved_at"]) if item.get("solved_at") else None,
+                        )
+                        db.add(up)
+                    db.flush()
                 counts["user_problems"] += 1
             except Exception as e:
                 errors.append({"item": item, "error": str(e)})
@@ -161,24 +166,26 @@ def import_user_data(db: Session, user_id: str, data: dict) -> dict:
     if "solve_logs" in data:
         for item in data["solve_logs"]:
             try:
-                existing = db.query(SolveLog).filter(
-                    SolveLog.id == item["id"],
-                ).first()
-                if existing:
-                    existing.mistake_tags = item.get("mistake_tags", existing.mistake_tags)
-                    existing.notes = item.get("notes", existing.notes)
-                    existing.time_spent = item.get("time_spent", existing.time_spent)
-                else:
-                    sl = SolveLog(
-                        id=item["id"],
-                        user_id=user_id,
-                        problem_id=item["problem_id"],
-                        mistake_tags=item.get("mistake_tags"),
-                        notes=item.get("notes"),
-                        time_spent=item.get("time_spent"),
-                        solved_at=datetime.fromisoformat(item["solved_at"]) if item.get("solved_at") else datetime.now(timezone.utc),
-                    )
-                    db.add(sl)
+                with db.begin_nested():
+                    existing = db.query(SolveLog).filter(
+                        SolveLog.id == item["id"],
+                    ).first()
+                    if existing:
+                        existing.mistake_tags = item.get("mistake_tags", existing.mistake_tags)
+                        existing.notes = item.get("notes", existing.notes)
+                        existing.time_spent = item.get("time_spent", existing.time_spent)
+                    else:
+                        sl = SolveLog(
+                            id=item["id"],
+                            user_id=user_id,
+                            problem_id=item["problem_id"],
+                            mistake_tags=item.get("mistake_tags"),
+                            notes=item.get("notes"),
+                            time_spent=item.get("time_spent"),
+                            solved_at=datetime.fromisoformat(item["solved_at"]) if item.get("solved_at") else datetime.now(timezone.utc),
+                        )
+                        db.add(sl)
+                    db.flush()
                 counts["solve_logs"] += 1
             except Exception as e:
                 errors.append({"item": item, "error": str(e)})
@@ -186,26 +193,28 @@ def import_user_data(db: Session, user_id: str, data: dict) -> dict:
     if "reviews" in data:
         for item in data["reviews"]:
             try:
-                existing = db.query(Review).filter(
-                    Review.id == item["id"],
-                ).first()
-                if existing:
-                    existing.interval_days = item.get("interval_days", existing.interval_days)
-                    existing.review_stage = item.get("review_stage", existing.review_stage)
-                    if item.get("due_at"):
-                        existing.due_at = datetime.fromisoformat(item["due_at"])
-                else:
-                    r = Review(
-                        id=item["id"],
-                        user_id=user_id,
-                        problem_id=item["problem_id"],
-                        solve_log_id=item.get("solve_log_id"),
-                        interval_days=item.get("interval_days", 7),
-                        due_at=datetime.fromisoformat(item["due_at"]) if item.get("due_at") else datetime.now(timezone.utc),
-                        review_stage=item.get("review_stage", 0),
-                        last_reviewed_at=datetime.fromisoformat(item["last_reviewed_at"]) if item.get("last_reviewed_at") else None,
-                    )
-                    db.add(r)
+                with db.begin_nested():
+                    existing = db.query(Review).filter(
+                        Review.id == item["id"],
+                    ).first()
+                    if existing:
+                        existing.interval_days = item.get("interval_days", existing.interval_days)
+                        existing.review_stage = item.get("review_stage", existing.review_stage)
+                        if item.get("due_at"):
+                            existing.due_at = datetime.fromisoformat(item["due_at"])
+                    else:
+                        r = Review(
+                            id=item["id"],
+                            user_id=user_id,
+                            problem_id=item["problem_id"],
+                            solve_log_id=item.get("solve_log_id"),
+                            interval_days=item.get("interval_days", 7),
+                            due_at=datetime.fromisoformat(item["due_at"]) if item.get("due_at") else datetime.now(timezone.utc),
+                            review_stage=item.get("review_stage", 0),
+                            last_reviewed_at=datetime.fromisoformat(item["last_reviewed_at"]) if item.get("last_reviewed_at") else None,
+                        )
+                        db.add(r)
+                    db.flush()
                 counts["reviews"] += 1
             except Exception as e:
                 errors.append({"item": item, "error": str(e)})
@@ -213,36 +222,38 @@ def import_user_data(db: Session, user_id: str, data: dict) -> dict:
     if "custom_lists" in data:
         for item in data["custom_lists"]:
             try:
-                existing = db.query(ProblemList).filter(
-                    ProblemList.id == item["id"],
-                ).first()
-                if existing:
-                    existing.name = item.get("name", existing.name)
-                    existing.description = item.get("description", existing.description)
-                else:
-                    lst = ProblemList(
-                        id=item["id"],
-                        name=item["name"],
-                        description=item.get("description"),
-                        is_global=False,
-                        is_custom=True,
-                        owner_id=user_id,
-                    )
-                    db.add(lst)
-                    db.flush()
+                with db.begin_nested():
+                    existing = db.query(ProblemList).filter(
+                        ProblemList.id == item["id"],
+                    ).first()
+                    if existing:
+                        existing.name = item.get("name", existing.name)
+                        existing.description = item.get("description", existing.description)
+                    else:
+                        lst = ProblemList(
+                            id=item["id"],
+                            name=item["name"],
+                            description=item.get("description"),
+                            is_global=False,
+                            is_custom=True,
+                            owner_id=user_id,
+                        )
+                        db.add(lst)
+                        db.flush()
 
-                if "problems" in item:
-                    for p_item in item["problems"]:
-                        lp = db.query(ListProblem).filter(
-                            ListProblem.list_id == item["id"],
-                            ListProblem.problem_id == p_item["id"],
-                        ).first()
-                        if not lp:
-                            db.add(ListProblem(
-                                list_id=item["id"],
-                                problem_id=p_item["id"],
-                                order=p_item.get("order", 0),
-                            ))
+                    if "problems" in item:
+                        for p_item in item["problems"]:
+                            lp = db.query(ListProblem).filter(
+                                ListProblem.list_id == item["id"],
+                                ListProblem.problem_id == p_item["id"],
+                            ).first()
+                            if not lp:
+                                db.add(ListProblem(
+                                    list_id=item["id"],
+                                    problem_id=p_item["id"],
+                                    order=p_item.get("order", 0),
+                                ))
+                    db.flush()
                 counts["custom_lists"] += 1
             except Exception as e:
                 errors.append({"item": item, "error": str(e)})

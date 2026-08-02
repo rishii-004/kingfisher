@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -5,14 +7,17 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.list_problem import ListProblem
 from app.models.problem import Problem
+from app.schemas.envelope import Envelope, Paginated
 from app.schemas.problem import (
+    CompaniesResponse,
     PlatformInfo,
     PlatformsResponse,
     ProblemResponse,
 )
 from app.services.auth import get_current_user
+from app.services.problem_filters import apply_problem_filters
 
-router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter()
 
 
 PLATFORMS = [
@@ -23,7 +28,25 @@ PLATFORMS = [
 ]
 
 
-@router.get("")
+@router.get("/platforms", response_model=Envelope[PlatformsResponse])
+def get_platforms():
+    return Envelope(data=PlatformsResponse(platforms=PLATFORMS))
+
+
+@router.get("/companies", response_model=Envelope[CompaniesResponse])
+def get_companies(db: Session = Depends(get_db)):
+    rows = db.query(Problem.company_tags).filter(Problem.company_tags.isnot(None)).all()
+    companies: set[str] = set()
+    for (tags,) in rows:
+        companies.update(tags or [])
+    return Envelope(data=CompaniesResponse(companies=sorted(companies)))
+
+
+@router.get(
+    "",
+    response_model=Envelope[Paginated[ProblemResponse]],
+    dependencies=[Depends(get_current_user)],
+)
 def list_problems(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
@@ -35,46 +58,41 @@ def list_problems(
     list_id: str | None = None,
     db: Session = Depends(get_db),
 ):
-    query = db.query(Problem)
-    if q:
-        query = query.filter(
-            or_(Problem.title.ilike(f"%{q}%"), Problem.slug.ilike(f"%{q}%"))
-        )
-    if platform:
-        query = query.filter(Problem.platform == platform)
-    if difficulty:
-        query = query.filter(Problem.difficulty == difficulty)
-    if topic:
-        query = query.filter(Problem.topic_tags.any(topic))
-    if company:
-        query = query.filter(Problem.company_tags.any(company))
+    query = apply_problem_filters(db.query(Problem), q, platform, difficulty, topic, company)
     if list_id:
         sub = db.query(ListProblem.problem_id).filter(ListProblem.list_id == list_id)
         query = query.filter(Problem.id.in_(sub))
 
     total = query.count()
     items = query.offset((page - 1) * per_page).limit(per_page).all()
-    return {
-        "data": {
-            "items": [ProblemResponse.model_validate(p) for p in items],
-            "total": total,
-            "page": page,
-            "per_page": per_page,
-        },
-        "error": None,
-    }
+    return Envelope(
+        data=Paginated(
+            items=[ProblemResponse.model_validate(p) for p in items],
+            total=total,
+            page=page,
+            per_page=per_page,
+        )
+    )
 
 
-@router.get("/{problem_id}", response_model=ProblemResponse)
+@router.get(
+    "/{problem_id}",
+    response_model=Envelope[ProblemResponse],
+    dependencies=[Depends(get_current_user)],
+)
 def get_problem(problem_id: str, db: Session = Depends(get_db)):
-    problem = db.query(Problem).filter(
-        or_(Problem.id == problem_id, Problem.slug == problem_id)
-    ).first()
+    query = db.query(Problem)
+    try:
+        uuid.UUID(problem_id)
+    except ValueError:
+        query = query.filter(Problem.slug == problem_id)
+    else:
+        query = query.filter(
+            or_(Problem.id == problem_id, Problem.slug == problem_id)
+        )
+    problem = query.first()
     if not problem:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found")
-    return problem
-
-
-@router.get("/platforms", response_model=PlatformsResponse)
-def get_platforms():
-    return PlatformsResponse(platforms=PLATFORMS)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found"
+        )
+    return Envelope(data=ProblemResponse.model_validate(problem))

@@ -47,3 +47,7 @@ class PlatformInfo(BaseModel):
 
 class PlatformsResponse(BaseModel):
     platforms: list[PlatformInfo]
+
+
+class CompaniesResponse(BaseModel):
+    companies: list[str]
