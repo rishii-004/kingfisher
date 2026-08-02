@@ -1,11 +1,15 @@
 BACKEND_DIR := ../kingfisher-backend/backend
 FRONTEND_DIR := ../kingfisher-frontend/frontend
 
-.PHONY: dev stop seed migrate test-backend db-shell
+.PHONY: dev dev-remote stop seed migrate test-backend db-shell
 
 ## Start Postgres + backend + frontend together (Ctrl+C to stop backend/frontend)
 dev:
 	./start.sh
+
+## Start backend + frontend against the remote (Supabase) DB — no local Postgres
+dev-remote:
+	./start-remote.sh
 
 ## Kill anything listening on the backend/frontend dev ports
 stop:
