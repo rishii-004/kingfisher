@@ -48,8 +48,11 @@ def seed():
     db = SessionLocal()
     try:
         problems_by_slug = {}
+        existing_by_slug = {
+            p.slug: p for p in db.query(Problem).filter(Problem.slug.in_(PROBLEMS)).all()
+        }
         for slug, fields in PROBLEMS.items():
-            existing = db.query(Problem).filter(Problem.slug == slug).first()
+            existing = existing_by_slug.get(slug)
             if existing:
                 for key, value in fields.items():
                     setattr(existing, key, value)
@@ -57,7 +60,6 @@ def seed():
                 continue
             p = Problem(slug=slug, **fields)
             db.add(p)
-            db.flush()
             problems_by_slug[slug] = p
         db.commit()
         print(f"Seeded {len(problems_by_slug)} problems.")
