@@ -14,4 +14,6 @@ FROM caddy:2-alpine
 COPY --from=builder /app/dist /srv
 COPY Caddyfile /etc/caddy/Caddyfile
 
+# Caddy reads PORT from the environment at runtime (see Caddyfile) —
+# Render injects it (default 10000); local/compose falls back to 80.
 EXPOSE 80

@@ -1,6 +1,22 @@
-:80 {
-	root * /srv
+# Serves the built SPA and reverse-proxies /api/* to the backend so the
+# browser only ever talks to one origin (no CORS, works on any hostname).
+#
+# - Port: Render injects PORT (default 10000) and routes traffic to it;
+#   local/docker-compose has no PORT so it falls back to 80.
+# - Backend: set BACKEND_URL to the backend's public URL on Render
+#   (e.g. https://kingfisher-api.onrender.com). Under docker-compose the
+#   default http://backend:8000 resolves on the compose network (the edge
+#   Caddy actually intercepts /api/* there, so this is just a safe fallback).
+:{$PORT:80} {
 	encode gzip
-	try_files {path} /index.html
-	file_server
+
+	handle /api/* {
+		reverse_proxy {$BACKEND_URL:http://backend:8000}
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
 }
