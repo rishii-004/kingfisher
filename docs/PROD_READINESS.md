@@ -13,7 +13,9 @@ state.
 **Status: all planned items done and verified** (built/ran every
 Docker image, ran the full 4-container prod stack end-to-end,
 registered a real user through it, measured the bundle-size fix).
-What's still explicitly out of scope is listed at the bottom.
+A second, turnkey deployment target — Render via Blueprint with Docker
+runtimes — was added afterwards (see section 5). What's still
+explicitly out of scope is listed at the bottom.
 
 ---
 
@@ -133,6 +135,47 @@ a handful of users, it's not worth the added build complexity yet.
 
 ---
 
+## 5. Render deployment (Docker runtime)
+
+A second deployment target alongside the Caddy/docker-compose stack,
+targeting Render's managed platform:
+
+- [x] `render.yaml` Blueprint at the repo root defining two web services
+      with `runtime: docker`: the backend (builds `backend/Dockerfile`
+      from the `backend` branch) and the frontend (builds
+      `frontend/Dockerfile` from the `frontend` branch). Each branch is a
+      separate git worktree in this repo — the Blueprint simply builds
+      each service from its own branch. The database is external
+      (Supabase), supplied to the backend as a `DATABASE_URL` env var.
+- [x] `PORT`-aware containers. Render injects `PORT` (default 10000)
+      and routes traffic to it, so the backend's uvicorn CMD and
+      `HEALTHCHECK` now read `$PORT` (fallback 8000 for compose/local),
+      and the frontend's Caddy listens on `:{$PORT:80}`.
+- [x] Same-origin API on Render. The frontend Caddyfile now
+      reverse-proxies `/api/*` to a runtime `BACKEND_URL` env var
+      (default `http://backend:8000` for the compose network), so the
+      SPA keeps its relative `/api/v1` client with zero CORS handling.
+- [x] No secrets in the Blueprint: `SECRET_KEY` uses `generateValue`,
+      and the remaining vars (`DATABASE_URL`, `CORS_ORIGINS`,
+      `INITIAL_ADMIN_EMAIL`, `BACKEND_URL`) are prompted at creation
+      (`sync: false`).
+- [x] Automated deploys are now covered for this target (push to
+      `backend`/`frontend` → auto deploy), closing the earlier
+      "CI only, no CD" gap for Render.
+- [x] Seeding stays manual and documented (`python -m scripts.seed` in
+      the Render shell post-deploy) — consistent with Architecture
+      Decision #8.
+- [x] Full walkthrough in `docs/RENDER_DEPLOY.md`; env checklist in
+      `.env.render.example`.
+
+Notable trade-offs vs the Caddy compose stack: free-tier web services
+spin down after ~15 min idle (first request after idle is slower), the
+DB is a separate vendor (Supabase) rather than a compose Postgres
+container, and there's no single edge Caddy for a custom domain — each
+service gets its own `*.onrender.com` subdomain with automatic TLS.
+
+---
+
 ## Explicitly out of scope for this pass
 
 - Rate limiting (per instruction — handful of users)
@@ -142,4 +185,6 @@ a handful of users, it's not worth the added build complexity yet.
 - Structured/centralized logging (stdout + `docker logs` is enough for
   a handful of users; revisit if this becomes a team tool)
 - CDN / static asset offloading
-- Automated deploy pipeline (CD) — CI (tests/build) only for now
+- Automated deploy pipeline (CD) — covered for the Render target via
+  auto-deploys (push to `backend`/`frontend` branches); the Caddy
+  compose stack remains manual by design

@@ -140,6 +140,26 @@ docker-compose up
 
 ---
 
+## Deployment
+
+Two supported production targets, both Docker-based:
+
+- **Render** (turnkey): a Blueprint ([`render.yaml`](render.yaml)) provisions
+  backend and frontend Docker web services with automatic deploys on push;
+  the database is your own Supabase Postgres, supplied as `DATABASE_URL`.
+  Follow the step-by-step guide in
+  [docs/RENDER_DEPLOY.md](docs/RENDER_DEPLOY.md); the complete env checklist
+  is in [`.env.render.example`](.env.render.example).
+- **Self-hosted with Caddy** (a single VPS): 
+  `docker compose -f docker-compose.prod.yml up -d --build` builds the
+  db + backend + frontend + Caddy edge stack (auto-HTTPS). Copy
+  `.env.production.example` → `.env` and fill it in first.
+
+See [docs/PROD_READINESS.md](docs/PROD_READINESS.md) for what's hardened and
+what's deliberately out of scope at this app's scale.
+
+---
+
 ## Development Roadmap
 
 The project is divided into 9 phases:

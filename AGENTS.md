@@ -213,6 +213,14 @@ explicitly out of scope (rate limiting, horizontal scaling, managed
 DB — all deliberate at this app's current scale), and the reasoning
 behind each choice.
 
+**Alternative: Render (Blueprint).** The `render.yaml` at the repo root
+provisions backend/frontend Docker web services with auto-deploy on push
+to `backend`/`frontend`; the database is external (Supabase), supplied
+as `DATABASE_URL`. Both Dockerfiles are `PORT`-aware (Render injects
+`PORT`); the frontend's Caddy proxies `/api/*` to the backend via the
+`BACKEND_URL` env var, preserving the single-origin API client. See
+`docs/RENDER_DEPLOY.md` and `.env.render.example`.
+
 ---
 
 ## Key Documents
@@ -221,6 +229,8 @@ behind each choice.
 |---|---|---|
 | `docs/ROADMAP.md` | `kingfisher/` | Original 9-phase development plan (historical) |
 | `docs/PROD_READINESS.md` | `kingfisher/` | Prod-hardening plan, what's done, what's explicitly deferred and why |
+| `docs/RENDER_DEPLOY.md` | `kingfisher/` | Step-by-step Render deployment guide (Blueprint, Docker runtime) |
+| `render.yaml` | `kingfisher/` | Render Blueprint: backend + frontend Docker web services (one per branch); DB is external (Supabase) |
 | `docs/API.md` | both `kingfisher-backend/` and `kingfisher-frontend/` | Full endpoint contract — request/response shapes, error codes |
 | `docs/DATABASE.md` | `kingfisher-backend/` | Schema, FK deletion order, seeding, backups, making a user admin |
 | `docs/TODOS.md` | `kingfisher-backend/` | Original backend build log (historical, all steps done) |
@@ -252,6 +262,14 @@ what's deliberately out of scope at this scale.
   problem catalog and global lists, per-user list-quota override.
   First admin is bootstrapped via `INITIAL_ADMIN_EMAIL` on backend
   startup rather than requiring manual SQL.
+- **Deployment:** two Docker targets — the self-hosted
+  `docker-compose.prod.yml` stack (db + backend + frontend + Caddy edge,
+  auto-HTTPS) and a Render Blueprint (`render.yaml`, Docker runtime web
+  services + external Supabase Postgres, auto-deploy on push to
+  `backend`/`frontend`). Both need the problem catalog seeded once after
+  first deploy (`python -m scripts.seed`) — seeding is deliberately manual
+  (Architecture Decision #8). See `docs/RENDER_DEPLOY.md` for the Render
+  walkthrough.
 
 ---
 
